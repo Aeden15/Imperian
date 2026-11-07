@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE MudletPackage>
+<MudletPackage version="1.001">
+  <TriggerPackage>
+    <TriggerGroup isActive="yes" isFolder="yes">
+      <name>Demonic</name><script />
+      <TriggerGroup isActive="yes" isFolder="yes">
+        <name>Diabolist</name><script />
+        <TriggerGroup isActive="yes" isFolder="yes"><name>Ritualism</name><script /></TriggerGroup>
+        <TriggerGroup isActive="yes" isFolder="yes"><name>Malignosis</name><script /></TriggerGroup>
+        <TriggerGroup isActive="yes" isFolder="yes"><name>Nightfall</name><script /></TriggerGroup>
+      </TriggerGroup>
+      <TriggerGroup isActive="yes" isFolder="yes">
+        <name>System</name><script />
+        <TriggerGroup isActive="yes" isFolder="yes" isTempTrigger="no" isMultiline="no" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
+          <name>Balances</name><script /><triggerType>0</triggerType><conditonLineDelta>0</conditonLineDelta><mStayOpen>0</mStayOpen><mCommand /><packageName />
+          <mFgColor>#ff0000</mFgColor><mBgColor>#ffff00</mBgColor><mSoundFile /><colorTriggerFgColor>#000000</colorTriggerFgColor><colorTriggerBgColor>#000000</colorTriggerBgColor><regexCodeList /><regexCodePropertyList />
+        </TriggerGroup>
+        <TriggerGroup isActive="yes" isFolder="yes"><name>Curing</name><script /></TriggerGroup>
+        <TriggerGroup isActive="yes" isFolder="yes" isTempTrigger="no" isMultiline="no">
+          <name>Autobasher</name><script /><triggerType>0</triggerType><conditonLineDelta>0</conditonLineDelta><mStayOpen>0</mStayOpen><mCommand /><packageName />
+          <mFgColor>#ff0000</mFgColor><mBgColor>#ffff00</mBgColor><mSoundFile /><colorTriggerFgColor>#000000</colorTriggerFgColor><colorTriggerBgColor>#000000</colorTriggerBgColor><regexCodeList /><regexCodePropertyList />
+        </TriggerGroup>
+      </TriggerGroup>
+    </TriggerGroup>
+  </TriggerPackage>
+  <TimerPackage />
+  <AliasPackage>
+    <AliasGroup isActive="yes" isFolder="yes">
+      <name>Demonic</name><script /><command /><packageName /><regex />
+      <AliasGroup isActive="yes" isFolder="yes">
+        <name>Diabolist</name><script /><command /><packageName /><regex />
+        <AliasGroup isActive="yes" isFolder="yes"><name>Ritualism</name><script /><command /><packageName /><regex /></AliasGroup>
+        <AliasGroup isActive="yes" isFolder="yes"><name>Malignosis</name><script /><command /><packageName /><regex /></AliasGroup>
+        <AliasGroup isActive="yes" isFolder="yes"><name>Nightfall</name><script /><command /><packageName /><regex /></AliasGroup>
+      </AliasGroup>
+      <AliasGroup isActive="yes" isFolder="yes">
+        <name>System</name><script /><command /><packageName /><regex />
+        <AliasGroup isActive="yes" isFolder="yes"><name>Autobasher</name><script /><command /><packageName /><regex /></AliasGroup>
+      </AliasGroup>
+    </AliasGroup>
+  </AliasPackage>
+  <ActionPackage />
+  <ScriptPackage>
+    <ScriptGroup isActive="yes" isFolder="yes">
+      <name>Demonic</name><packageName /><script /><eventHandlerList />
+      <ScriptGroup isActive="yes" isFolder="yes">
+        <name>System</name><packageName /><script /><eventHandlerList />
+        <ScriptGroup isActive="yes" isFolder="yes"><name>Api stuff</name><packageName /><script /><eventHandlerList /></ScriptGroup>
+        <ScriptGroup isActive="yes" isFolder="yes"><name>Autobasher</name><packageName /><script /><eventHandlerList /></ScriptGroup>
+      </ScriptGroup>
+      <ScriptGroup isActive="yes" isFolder="yes">
+        <name>Diabolist</name><packageName /><script /><eventHandlerList />
+        <ScriptGroup isActive="yes" isFolder="yes"><name>Ritualism</name><packageName /><script /><eventHandlerList /></ScriptGroup>
+        <ScriptGroup isActive="yes" isFolder="yes"><name>Malignosis</name><packageName /><script /><eventHandlerList /></ScriptGroup>
+        <ScriptGroup isActive="yes" isFolder="yes"><name>Nightfall</name><packageName /><script /><eventHandlerList /></ScriptGroup>
+      </ScriptGroup>
+    </ScriptGroup>
+  </ScriptPackage>
+  <KeyPackage />
+</MudletPackage>
