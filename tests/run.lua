@@ -88,6 +88,9 @@ end
 local function room(area, id)
   event('Room.Info', {num=id or 101, name='A room', area=area or 'Ant colony'})
 end
+local function mappedRoom(number, exits)
+  event('Room.Info', {num=number, name='A room', area='the Amoran Anthill', exits=exits})
+end
 local function roster(items) event('Char.Items.List', {location='room', items=items or {
   {id='1234',name='a warrior ant',attrib='m'}, {id='2335',name='Fido',attrib='m'}
 }}) end
@@ -712,6 +715,190 @@ test('the first room info can acknowledge an existing text only arrival', functi
   reset(); vitals(); dem.hunt.toggle(); DEMONIC_TEST_ENTERED('north')
   room('Ant colony',102); roster({}); tick(0)
   assert(dem.room.ready); eq(dem.room.num,'102'); assert(dem.hunt.enabled)
+end)
+
+local function mappedStart()
+  reset(); vitals(); mappedRoom(14626,{e=14625}); roster({}); dem.onPrompt()
+  mappedRoom(14625,{w=14626,n=14624,s=14628}); roster({}); dem.onPrompt()
+  dem.hunt.add('ant'); dem.hunt.toggle(); roster({}); tick(0)
+end
+
+test('a tracked walk after an intervening prompt preserves its accepted identity and roster', function()
+  reset(); setup(); dem.hunt.toggle(); roster({}); tick(0); send('n')
+  room('Ant colony',102); roster({}); dem.onPrompt(); gmcpSent={}
+  DEMONIC_TEST_ENTERED('north'); tick(0.3)
+  eq(dem.room.num,'102'); assert(dem.room.ready); eq(queryCount(),0); eq(commandCount('ih'),0)
+end)
+
+test('a movement context survives its info text prompt and refresh generations', function()
+  reset(); setup(); dem.hunt.toggle(); roster({}); tick(0)
+  local before=dem.room.contextId; assert(type(before)=='number')
+  send('n'); local context=dem.room.contextId; assert(context>before)
+  DEMONIC_TEST_ENTERED('north'); eq(dem.room.contextId,context)
+  room('Ant colony',102); roster({}); dem.onPrompt(); dem.room.request('same arrival')
+  eq(dem.room.contextId,context)
+end)
+
+test('a known return path recovers the supplied stuck repeated identity', function()
+  mappedStart(); send('w'); DEMONIC_TEST_ENTERED('west'); dem.onPrompt()
+  send('e'); DEMONIC_TEST_ENTERED('east'); roster({{id='8',name='a warrior ant',attrib='m'}}); tick(0)
+  eq(dem.room.num,nil); eq(#sent,0)
+  mappedRoom(14625,{w=14626,n=14624,s=14628})
+  roster({{id='406451',name='a warrior ant',attrib='m'}}); tick(0)
+  eq(dem.room.num,'14625'); eq(sent[1],'trace fire ice 406451')
+end)
+
+test('a proven path can end with an unhinted entry without corrupting queued movement counts', function()
+  mappedStart(); send('w'); DEMONIC_TEST_ENTERED('west'); DEMONIC_TEST_ENTERED('east')
+  mappedRoom(14625,{w=14626}); roster({{id='9',name='a warrior ant',attrib='m'}}); tick(0)
+  eq(dem.room.num,'14625'); eq(dem.room.diagnostics().pendingMoves,0); eq(sent[1],'trace fire ice 9')
+end)
+
+test('known exits alone never grant identity after a missed movement packet', function()
+  mappedStart(); send('w'); DEMONIC_TEST_ENTERED('west'); roster({{id='8',name='a warrior ant',attrib='m'}})
+  tick(0.3); eq(dem.room.num,nil); assert(not dem.room.ready); eq(#sent,0)
+end)
+
+test('a known queued return cannot be confirmed by an old look reply before entry', function()
+  mappedStart(); send('look&&w&&e'); mappedRoom(14625,{w=14626}); roster({{id='8',name='a warrior ant',attrib='m'}})
+  tick(0); eq(dem.room.num,nil); eq(#sent,0)
+  DEMONIC_TEST_ENTERED('west'); DEMONIC_TEST_ENTERED('east'); tick(0); eq(#sent,0)
+  mappedRoom(14625,{w=14626}); roster({{id='9',name='a warrior ant',attrib='m'}}); tick(0)
+  eq(sent[1],'trace fire ice 9')
+end)
+
+test('a repeated path destination cannot acknowledge a later unexecuted command', function()
+  mappedStart(); send('w&&e&&w'); DEMONIC_TEST_ENTERED('west'); DEMONIC_TEST_ENTERED('east')
+  mappedRoom(14626,{e=14625}); roster({{id='8',name='a warrior ant',attrib='m'}}); tick(0)
+  eq(dem.room.num,nil); eq(#sent,0)
+  DEMONIC_TEST_ENTERED('west'); mappedRoom(14626,{e=14625})
+  roster({{id='9',name='a warrior ant',attrib='m'}}); tick(0)
+  eq(sent[1],'trace fire ice 9')
+end)
+
+test('a failed hinted movement cannot erase an unresolved successful unhinted entry', function()
+  mappedStart(); send('w'); DEMONIC_TEST_ENTERED('west'); DEMONIC_TEST_ENTERED('east'); send('n')
+  mappedRoom(14626,{e=14625}); event('Room.WrongDir','n')
+  roster({{id='8',name='a warrior ant',attrib='m'}}); tick(0)
+  eq(dem.room.num,nil); eq(#sent,0); eq(dem.room.diagnostics().pendingMoves,0)
+  mappedRoom(14625,{w=14626}); roster({{id='9',name='a warrior ant',attrib='m'}}); tick(0)
+  eq(dem.room.num,'14625'); eq(sent[1],'trace fire ice 9')
+end)
+
+test('a skipped intermediate identity never enables an intermediate room attack', function()
+  mappedStart(); send('w&&e'); DEMONIC_TEST_ENTERED('west'); DEMONIC_TEST_ENTERED('east')
+  mappedRoom(14626,{e=14625}); mappedRoom(14626,{e=14625})
+  roster({{id='8',name='a warrior ant',attrib='m'}}); tick(0); eq(#sent,0); eq(dem.room.num,nil)
+  mappedRoom(14625,{w=14626}); roster({{id='9',name='a warrior ant',attrib='m'}}); tick(0)
+  eq(sent[1],'trace fire ice 9')
+end)
+
+test('an unknown path cannot skip a missed intermediate identity', function()
+  reset(); setup(); dem.hunt.toggle(); roster({}); tick(0)
+  send('n'); DEMONIC_TEST_ENTERED('north'); dem.onPrompt(); send('e'); DEMONIC_TEST_ENTERED('east')
+  room('Ant colony',103); roster({{id='9',name='a warrior ant',attrib='m'}}); tick(0)
+  eq(dem.room.num,nil); eq(#sent,0); tick(10); assert(not dem.hunt.enabled)
+end)
+
+test('room path metadata cannot survive a connection reset', function()
+  mappedStart(); raiseEvent('sysConnectionEvent'); vitals(); room('the Amoran Anthill',14625); roster({})
+  dem.hunt.toggle(); roster({}); tick(0)
+  send('w'); DEMONIC_TEST_ENTERED('west'); dem.onPrompt(); send('e'); DEMONIC_TEST_ENTERED('east')
+  room('the Amoran Anthill',14625); roster({{id='9',name='a warrior ant',attrib='m'}}); tick(0)
+  eq(dem.room.num,nil); eq(#sent,0)
+end)
+
+test('debug status explains the pending movement and last received room identity', function()
+  mappedStart(); send('w'); DEMONIC_TEST_ENTERED('west'); messages={}; DEMONIC_TEST_HUNT_STATUS(true)
+  local output=table.concat(messages,' ')
+  assert(output:find('pending movements: 1',1,true))
+  assert(output:find('expected room: 14626',1,true))
+  assert(output:find('last GMCP room: 14625',1,true))
+end)
+
+test('the unified alias waits instead of selecting a player while room identity is unconfirmed', function()
+  reset(); setup(); dem.hunt.toggle(); roster({}); tick(0); send('n')
+  DEMONIC_TEST_TARGET_ALIAS('ant'); eq(dem.target,'ant'); eq(dem.targeting.kind,'pending'); assert(dem.hunt.enabled)
+  DEMONIC_TEST_ENTERED('north'); room('Ant colony',102); roster({{id='9',name='a warrior ant',attrib='m'}}); tick(0)
+  eq(dem.targeting.kind,'denizen'); eq(dem.target,'ant'); eq(sent[1],'trace fire ice 9')
+end)
+
+test('a pending manual denizen preserves the submitted attack and resolves its next target', function()
+  reset(); start(); local action=dem.balances.action; dem.room.request('refresh')
+  DEMONIC_TEST_TARGET_ALIAS('fido2335'); tick(0)
+  eq(dem.targeting.kind,'pending'); assert(dem.hunt.enabled); eq(dem.balances.action,action); eq(#sent,1)
+  roster(); tick(0); eq(dem.targeting.kind,'denizen'); eq(dem.balances.action,action); eq(#sent,1)
+  cycle(); eq(sent[2],'trace fire ice 2335')
+end)
+
+test('a pending player is classified only after the current full roster arrives', function()
+  reset(); setup(); dem.hunt.toggle(); DEMONIC_TEST_TARGET_ALIAS('Aeden'); tick(0)
+  eq(dem.targeting.kind,'pending'); assert(dem.hunt.enabled); eq(#sent,0)
+  roster(); tick(0); eq(dem.targeting.kind,'player'); eq(dem.target,'Aeden'); assert(not dem.hunt.enabled); eq(#sent,0)
+end)
+
+test('pending references resolve while hunting is off and do not enable it', function()
+  reset(); DEMONIC_TEST_TARGET_ALIAS('fido'); eq(dem.targeting.kind,'pending')
+  room(); roster(); tick(0)
+  eq(dem.targeting.kind,'denizen'); eq(dem.target,'fido'); assert(not dem.hunt.enabled); eq(#sent,0)
+end)
+
+test('a roster followed immediately by its prompt resolves a pending target before hunting', function()
+  reset(); setup(); dem.hunt.toggle(); DEMONIC_TEST_TARGET_ALIAS('fido')
+  roster(); dem.onPrompt(); tick(0)
+  eq(dem.targeting.kind,'denizen'); eq(dem.target,'fido'); eq(sent[1],'trace fire ice 2335')
+end)
+
+test('pending targeting while hunt is off reissues contents after an early roster was ignored', function()
+  reset(); DEMONIC_TEST_TARGET_ALIAS('fido'); eq(queryCount(),1)
+  roster(); room(); eq(queryCount(),2)
+  roster(); dem.onPrompt(); tick(0)
+  eq(dem.targeting.kind,'denizen'); eq(dem.target,'fido'); assert(not dem.hunt.enabled); eq(#sent,0)
+end)
+
+test('pending targeting subscribes to room GMCP even before hunting has been enabled', function()
+  reset(); DEMONIC_TEST_TARGET_ALIAS('fido')
+  local subscribed=false
+  for _, request in ipairs(gmcpSent) do
+    if request=='Core.Supports.Add ["Char 1","Char.Items 1","Room 1"]' then subscribed=true end
+  end
+  assert(subscribed,'target classification must subscribe before requesting its first room roster')
+end)
+
+test('a later movement cancels a pending reference from the previous context', function()
+  reset(); setup(); dem.hunt.toggle(); DEMONIC_TEST_TARGET_ALIAS('fido'); eq(dem.targeting.kind,'pending')
+  send('n'); DEMONIC_TEST_ENTERED('north'); room('Ant colony',102)
+  roster({{id='9',name='a warrior ant',attrib='m'},{id='2335',name='Fido',attrib='m'}}); tick(0)
+  assert(dem.hunt.enabled); eq(dem.target,'9'); eq(sent[1],'trace fire ice 9')
+end)
+
+test('the latest queued movement context owns a target requested during a batch', function()
+  reset(); setup(); dem.hunt.toggle(); roster({}); tick(0); send('n&&e')
+  DEMONIC_TEST_TARGET_ALIAS('fido'); local context=dem.room.contextId
+  DEMONIC_TEST_ENTERED('north'); room('Ant colony',102); roster(); tick(0)
+  eq(dem.targeting.kind,'pending'); eq(dem.room.contextId,context); eq(#sent,0)
+  DEMONIC_TEST_ENTERED('east'); room('Ant colony',103); roster(); tick(0)
+  eq(dem.targeting.kind,'denizen'); eq(dem.target,'fido'); eq(sent[1],'trace fire ice 2335')
+end)
+
+test('replacing a pending reference cannot resolve an older player selection', function()
+  reset(); setup(); dem.hunt.toggle(); DEMONIC_TEST_TARGET_ALIAS('Aeden'); DEMONIC_TEST_TARGET_ALIAS('ant')
+  roster(); tick(0); assert(dem.hunt.enabled); eq(dem.target,'ant'); eq(sent[1],'trace fire ice 1234')
+end)
+
+test('clearing a pending reference prevents late roster resolution', function()
+  reset(); setup(); dem.hunt.toggle(); DEMONIC_TEST_TARGET_ALIAS('fido'); DEMONIC_TEST_TARGET_ALIAS('clear')
+  roster(); tick(0); eq(dem.target,nil); eq(dem.targeting.kind,nil); assert(not dem.hunt.enabled); eq(#sent,0)
+end)
+
+test('explicit player selection cancels pending automatic classification immediately', function()
+  reset(); setup(); dem.hunt.toggle(); DEMONIC_TEST_TARGET_ALIAS('ant'); dem.targeting.setPlayer('Aeden')
+  roster(); tick(0); eq(dem.target,'Aeden'); eq(dem.targeting.kind,'player'); assert(not dem.hunt.enabled); eq(#sent,0)
+end)
+
+test('connection changes cancel pending classification before later room data', function()
+  reset(); setup(); dem.hunt.toggle(); DEMONIC_TEST_TARGET_ALIAS('fido'); raiseEvent('sysDisconnectionEvent')
+  room(); roster(); tick(0); eq(dem.target,nil); eq(dem.targeting.kind,nil); assert(not dem.hunt.enabled)
 end)
 
 for _, t in ipairs(tests) do

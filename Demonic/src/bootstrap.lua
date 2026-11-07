@@ -3,6 +3,7 @@ function dem.onPrompt(text)
   dem.cancel('hunt-step')
   if text then dem.balances.parsePrompt(text) end
   dem.room.onPrompt()
+  dem.targeting.resolvePending()
   dem.hunt.step()
   dem.balances.endPrompt()
 end

@@ -68,6 +68,9 @@ end
 function dem.schedule()
   if not active or dem.runtime.timers['hunt-step'] then return end
   dem.defer('hunt-step', 0, function()
+    if dem.targeting and type(dem.targeting.resolvePending) == 'function' then
+      dem.targeting.resolvePending()
+    end
     if dem.hunt and type(dem.hunt.step) == 'function' then dem.hunt.step() end
   end)
 end

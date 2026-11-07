@@ -76,6 +76,12 @@ function hunt.onTargetChanged(oldReference, reference, kind, source)
   selected = nil
   if not reference then hunt.stop('The shared target was cleared.'); return end
   if kind == 'player' then hunt.stop('A player target was selected.'); return end
+  if kind == 'pending' then
+    manualReference = nil
+    waitForState('Waiting to identify the selected target.')
+    schedule()
+    return
+  end
   manualReference = reference
   -- Retain known same-room ownership even during refresh, so a Remove packet
   -- can end this exception. step() still requires the fresh roster to attack.
@@ -158,6 +164,9 @@ function hunt.step()
   end
   if v and finite(v.mp) and finite(v.maxmp) and v.maxmp > 0 and v.mp / v.maxmp * 100 <= dem.settings.manaLimit then
     hunt.stop('Mana reached the configured limit.'); return
+  end
+  if dem.targeting.kind == 'pending' then
+    waitForState('Waiting to identify the selected target.'); return
   end
   if not knownVitals() or not room.ready or not room.num or b.bal == nil or b.eq == nil
       or v.prone == nil or v.stunned == nil then waitForState(); return end
@@ -306,6 +315,7 @@ function hunt.status(detailed)
   local v, b = dem.vitals, dem.balances
   local function value(n) return n ~= nil and tostring(n) or 'unknown' end
   local refresh = dem.room.refresh
+  local diagnostics = dem.room.diagnostics and dem.room.diagnostics() or {}
   local age = refresh and string.format('%.1fs', math.max(0, dem.now() - refresh.started)) or 'none'
   message('Hunt mode ' .. (hunt.enabled and 'on' or 'off') .. '; area: ' .. (dem.room.area or 'unknown')
     .. '; target: ' .. (dem.target or 'none') .. '; limits: ' .. dem.settings.hpLimit .. '% health, '
@@ -314,7 +324,13 @@ function hunt.status(detailed)
     .. '; equilibrium: ' .. value(b.eq) .. '; refresh: ' .. (dem.room.phase or 'unknown')
     .. '; request age: ' .. age .. '; retry: ' .. tostring(refresh and math.max(0, refresh.attempts - 1) or 0)
     .. '; ih: ' .. (refresh and refresh.ihSent and 'sent' or 'not sent')
-    .. '; refresh reason: ' .. (refresh and refresh.reason or 'none') .. '; ' .. hunt.reason)
+    .. '; refresh reason: ' .. (refresh and refresh.reason or 'none')
+    .. '; room: ' .. value(dem.room.num) .. '; context: ' .. value(diagnostics.contextId)
+    .. '; pending movements: ' .. value(diagnostics.pendingMoves)
+    .. '; expected room: ' .. value(diagnostics.expectedDestination)
+    .. '; last GMCP room: ' .. value(diagnostics.lastReceivedRoom)
+    .. '; identity block: ' .. (diagnostics.rejectedReason or 'none')
+    .. '; target type: ' .. (dem.targeting.kind or 'none') .. '; ' .. hunt.reason)
   return hunt.enabled
 end
 function hunt.setLimits(hp, mana)

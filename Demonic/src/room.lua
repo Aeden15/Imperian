@@ -2,9 +2,11 @@
 -- request ID, so arbitrary delayed replies cannot be assigned to a room.
 -- Generations guard local callbacks and targets; Room.Info confirms identity.
 dem.room = {items = {}, order = {}, retired = {}, ready = false,
-  phase = 'unconfirmed', generation = 0}
+  phase = 'unconfirmed', generation = 0, contextId = 0}
 local room = dem.room
 local pendingMoves, lastIdentity = 0, nil
+local nextContext, exitsByRoom, movementOrigin = 0, {}, nil
+local lastReceivedRoom, rejectedReason
 -- Text and Room.Info acknowledge the same arrival in either order. Only
 -- Room.Info consumes queued movement or supplies an identity.
 local arrivals, currentArrival, awaitingArrival = {}, nil, false
@@ -101,6 +103,8 @@ function room.reset()
   invalidate()
   pendingMoves, lastIdentity = 0, nil
   arrivals, currentArrival, awaitingArrival = {}, nil, false
+  nextContext, room.contextId, exitsByRoom, movementOrigin = 0, 0, {}, nil
+  lastReceivedRoom, rejectedReason = nil, nil
   room.subscribed, room.processingList = false, false
 end
 
@@ -177,6 +181,31 @@ local function direction(value)
   return fullDirection[value] or value
 end
 
+local function newContext()
+  nextContext = nextContext + 1
+  room.contextId = nextContext
+  return nextContext
+end
+
+-- These are predictions only. Neither a cached exit nor an item list can
+-- acknowledge movement; a newly received Room.Info must still match it.
+local function expectedPath()
+  local source = movementOrigin
+  for _, arrival in ipairs(arrivals) do
+    local exits = source and exitsByRoom[source]
+    arrival.expected = exits and exits[arrival.direction] or nil
+    source = arrival.identity and arrival.identity.num or arrival.expected
+  end
+end
+
+function room.diagnostics()
+  expectedPath()
+  local latest = arrivals[#arrivals]
+  return {contextId = room.contextId, pendingMoves = pendingMoves,
+    expectedDestination = latest and latest.expected,
+    lastReceivedRoom = lastReceivedRoom, rejectedReason = rejectedReason}
+end
+
 function room.onMovement(command)
   if type(command) ~= 'string' then return end
   local moves, first = {}, 1
@@ -185,17 +214,23 @@ function room.onMovement(command)
     local boundary = command:find(separator, first, true)
     local part = command:sub(first, boundary and boundary - 1 or #command)
     local heading = direction(part)
-    if heading then moves[#moves + 1] = {direction = heading, textEligible = true} end
+    if heading then
+      moves[#moves + 1] = {direction = heading, textEligible = true,
+        hinted = true, contextId = newContext()}
+    end
     if not boundary then break end
     first = boundary + #separator
   end
   if #moves == 0 then return end
   if pendingMoves == 0 then
     if room.num then lastIdentity = {num = room.num, area = room.area} end
+    movementOrigin = lastIdentity and lastIdentity.num
     arrivals = {}
   end
   for _, arrival in ipairs(moves) do arrivals[#arrivals + 1] = arrival end
   pendingMoves = pendingMoves + #moves
+  expectedPath()
+  rejectedReason = nil
   invalidate()
   currentArrival, awaitingArrival = nil, true
   if dem.hunt then dem.hunt.onRoomChanged() end
@@ -221,7 +256,8 @@ local function confirmed(identity, arrival)
   if identity then room.num, room.area = identity.num, identity.area end
   if not room.ready then room.phase = room.num and 'waiting' or 'unconfirmed' end
   if fresh and dem.hunt then dem.hunt.onRoomChanged() end
-  if hunting() and not room.ready then
+  local pendingTarget = dem.targeting and dem.targeting.kind == 'pending'
+  if (hunting() or pendingTarget) and not room.ready then
     room.request(identity and 'Room identity confirmed' or 'Room entry confirmed')
   end
   changed()
@@ -242,7 +278,7 @@ function room.onEntered(value)
     -- identity and contents are known, another walk must retire that roster.
     if currentArrival and currentArrival.entered and currentArrival.direction == heading
         and not (currentArrival.info and room.ready) then return end
-    arrival = {direction = heading}
+    arrival = {direction = heading, contextId = newContext()}
     arrivals[#arrivals + 1] = arrival
   end
   arrival.entered, arrival.direction = true, heading
@@ -250,13 +286,31 @@ function room.onEntered(value)
 end
 
 function room.onWrongDir(payload)
-  if type(payload) ~= 'string' or pendingMoves == 0 then return end
+  local heading = direction(payload)
+  if not heading or pendingMoves == 0 then return end
+  local failed
   for i, arrival in ipairs(arrivals) do
-    if not arrival.info then table.remove(arrivals, i); break end
+    if arrival.hinted and not arrival.info and not arrival.entered
+        and arrival.direction == heading then failed = i; break end
   end
+  if not failed then return end
+  table.remove(arrivals, failed)
   pendingMoves = pendingMoves - 1
-  if pendingMoves == 0 and lastIdentity then
-    local arrival = {info = true}
+  rejectedReason = nil
+  expectedPath()
+  local unresolvedEntry
+  for i = #arrivals, 1, -1 do
+    if arrivals[i].entered and not arrivals[i].info then
+      unresolvedEntry = arrivals[i]; break
+    end
+  end
+  if pendingMoves == 0 and unresolvedEntry then
+    -- Failure did not undo an earlier successful entry. Rebase its recovery
+    -- after the failed command's invalidation, without restoring an old room.
+    unresolvedEntry.generation = nil
+    confirmed(nil, unresolvedEntry)
+  elseif pendingMoves == 0 and lastIdentity then
+    local arrival = {info = true, contextId = room.contextId}
     arrivals = {arrival}
     confirmed(lastIdentity, arrival)
   else
@@ -272,23 +326,73 @@ function room.onInfo(payload)
   local number = id(payload.num)
   if not number then return end
   local identity = {num = number, area = area(payload.area)}
+  lastReceivedRoom = number
+  if type(payload.exits) == 'table' then
+    local exits, ambiguous = {}, {}
+    for heading, destination in pairs(payload.exits) do
+      local normalized, target = direction(heading), id(destination)
+      if normalized and target and not ambiguous[normalized] then
+        if exits[normalized] and exits[normalized] ~= target then
+          exits[normalized], ambiguous[normalized] = nil, true
+        else
+          exits[normalized] = target
+        end
+      end
+    end
+    exitsByRoom[number] = exits
+  end
+  expectedPath()
+  local arrival, arrivalIndex, firstIndex
+  if pendingMoves > 0 then
+    for i, candidate in ipairs(arrivals) do
+      if not candidate.info then firstIndex = i; break end
+    end
+    -- A later destination can acknowledge skipped packets only when the
+    -- whole cached path is explicit and every skipped entry succeeded.
+    local proven = true
+    for i = firstIndex, #arrivals do
+      local candidate = arrivals[i]
+      if not candidate.info then
+        if not candidate.expected then proven = false end
+        -- A later unentered repeat cannot supersede an earlier match: that
+        -- packet may still acknowledge the earlier visit to the same room.
+        if proven and candidate.expected == number and (not arrival or candidate.entered) then
+          arrival, arrivalIndex = candidate, i
+        end
+        if not candidate.entered then break end
+      end
+    end
+  end
   -- LOOK and duplicate updates also emit Room.Info. Repeating the last known
   -- identity does not prove that a queued movement has executed. Otherwise a
   -- look&&n reply could re-enable attacks in the room we are about to leave.
   if (pendingMoves > 0 or (currentArrival and currentArrival.entered and not room.num))
-      and lastIdentity and number == lastIdentity.num then
+      and lastIdentity and number == lastIdentity.num
+      and not (arrival and arrival.entered) then
     if payload.area ~= nil then lastIdentity.area = identity.area end
+    rejectedReason = 'Repeated identity without a confirmed return path.'
     changed()
     return
   end
-  local arrival
   if pendingMoves > 0 then
-    for _, candidate in ipairs(arrivals) do
-      if not candidate.info then arrival = candidate; break end
+    if not arrival then
+      arrival, arrivalIndex = arrivals[firstIndex], firstIndex
+      if arrival.expected and arrival.expected ~= number then
+        rejectedReason = 'Room.Info does not match the expected movement destination.'
+        changed()
+        return
+      end
     end
-    arrival.info = true
+    for i = firstIndex, arrivalIndex do
+      local candidate = arrivals[i]
+      if not candidate.info then
+        candidate.info = true
+        if candidate.hinted then pendingMoves = pendingMoves - 1 end
+      end
+    end
+    arrival.identity = identity
     lastIdentity = identity
-    pendingMoves = pendingMoves - 1
+    rejectedReason = nil
     if pendingMoves == 0 then
       confirmed(identity, arrival)
     else
@@ -303,11 +407,14 @@ function room.onInfo(payload)
     if not arrival then
       -- The first identity is a snapshot, not evidence of a new arrival. Only
       -- a genuine transition may pair with walk text that has not arrived yet.
-      arrival = {textEligible = lastIdentity ~= nil}
+      local transition = lastIdentity ~= nil
+      arrival = {textEligible = transition,
+        contextId = transition and newContext() or room.contextId}
       -- No queued command needs older arrival acknowledgements now.
       arrivals = {arrival}
     end
-    arrival.info, lastIdentity = true, identity
+    arrival.info, arrival.identity, lastIdentity = true, identity, identity
+    rejectedReason = nil
     confirmed(identity, arrival)
     return
   elseif payload.area ~= nil then
@@ -316,14 +423,15 @@ function room.onInfo(payload)
     identity.area = room.area
   end
   lastIdentity = identity
+  rejectedReason = nil
   changed()
 end
 
 function room.onPrompt()
-  -- Close unmatched text correlation, never room readiness or Info matching.
-  -- A later walk cannot belong to a completed server output transaction.
+  -- Only unhinted Info-first correlation expires at a prompt. An outgoing
+  -- movement token still owns its eventual walk text across prompt boundaries.
   for _, arrival in ipairs(arrivals) do
-    if arrival.info then arrival.textEligible = false end
+    if arrival.info and not arrival.hinted then arrival.textEligible = false end
   end
 end
 
