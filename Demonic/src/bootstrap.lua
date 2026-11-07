@@ -9,7 +9,7 @@ function dem.onPrompt(text)
 end
 
 function dem.resetConnection(event)
-  dem.defences.reset('Connection changed; type ddef to enable again.')
+  dem.defences.reset('Connection changed; type ddef to run the defence sequence again.')
   dem.hunt.stop('Connection changed; type hunt to enable again.')
   dem.hunt.lastAction = nil
   dem.hunt.resetTerminalHistory()

@@ -81,7 +81,7 @@ Add-Script $scriptRoot 'Initialize Demonic' 'bootstrap'
 [void]$scriptRoot.PrependChild($system)
 [void]$scriptRoot.AppendChild($scriptRoot.SelectSingleNode('Script[name="Initialize Demonic"]'))
 
-Add-Alias (Get-Group '//AliasPackage/AliasGroup[name="Diabolist"]/AliasGroup[name="Ritualism"]') 'Defs' '^ddef$' 'dem.defences.toggle()'
+Add-Alias (Get-Group '//AliasPackage/AliasGroup[name="Diabolist"]/AliasGroup[name="Ritualism"]') 'Defs' '^ddef$' 'dem.defences.run()'
 
 $aliases = Get-Group '//AliasPackage/AliasGroup[name="System"]'
 $targetAliases = $aliases.SelectSingleNode('AliasGroup[name="Targeting"]')

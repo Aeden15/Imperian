@@ -51,7 +51,7 @@ if ($lastScript.LocalName -cne 'Script' -or $lastScript.SelectSingleNode('name')
 }
 $config = Get-Content -LiteralPath (Join-Path $root 'Demonic/config.lua') -Raw
 if ($config -cnotmatch '(?m)^created = "2026-11-07T16:29:35-06:00"\r?$') { throw 'Export creation timestamp was not preserved.' }
-if ($config -cnotmatch '(?m)^mpackage = \[\[Demonic\]\]\r?$' -or $config -cnotmatch '(?m)^version = \[\[0\.1\.9\]\]\r?$' -or $config -cnotmatch '(?s)description = \[\[Shared targeting.+?\]\]') {
+if ($config -cnotmatch '(?m)^mpackage = \[\[Demonic\]\]\r?$' -or $config -cnotmatch '(?m)^version = \[\[0\.1\.10\]\]\r?$' -or $config -cnotmatch '(?s)description = \[\[Shared targeting.+?\]\]') {
     throw 'Package version or description is missing.'
 }
 foreach ($name in $sourceFiles.Keys) {

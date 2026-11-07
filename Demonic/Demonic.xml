@@ -563,7 +563,7 @@
 				<regex />
 				<Alias isActive="yes" isFolder="no">
 					<name>Defs</name>
-					<script>dem.defences.toggle()</script>
+					<script>dem.defences.run()</script>
 					<command></command>
 					<packageName></packageName>
 					<regex>^ddef$</regex>
@@ -920,6 +920,7 @@ local function boolean(value)
 end
 
 local function release()
+  if balances.action then balances.action.completed = true end
   balances.action = nil
   dem.cancel('attack-watchdog')
   dem.cancel('defence-watchdog')
@@ -1010,6 +1011,7 @@ function balances.beginAction(action)
   action.resource = action.resource or 'bal'
   action.lost = balances[action.resource] == false
   action.readiness = {bal = readinessSerial.bal, eq = readinessSerial.eq}
+  action.sentPrompt = dem.runtime.promptSerial or 0
   balances.action = action
   -- Local pessimism gates sends; it is not evidence of a server balance cycle.
   if action.resource ~= 'prompt' then balances[action.resource] = false end
@@ -1028,8 +1030,9 @@ end
 
 function balances.onPrompt()
   local action = balances.action
-  if action and action.kind == 'defence' and action.resource == 'prompt' and action.confirmed
-      and (dem.runtime.promptSerial or 0) &gt; action.confirmedPrompt
+  if action and action.kind == 'defence' and action.resource == 'prompt'
+      and (action.manualPass or action.confirmed)
+      and (dem.runtime.promptSerial or 0) &gt; (action.manualPass and action.sentPrompt or action.confirmedPrompt)
       and readinessSerial.bal &gt; action.readiness.bal and readinessSerial.eq &gt; action.readiness.eq
       and balances.bal == true and balances.eq == true then release() end
 end
@@ -2314,10 +2317,14 @@ local defences = dem.defences
 
 function defences.stop(reason)
   local wasEnabled = defences.enabled
+  local wasPass = defences.pass ~= nil
   defences.enabled = false
+  defences.pass = nil
   defences.reason = reason or 'Disabled by user.'
   -- A pending command still owns its confirmation and recovery after toggling off.
-  if wasEnabled then dem.message('Defence maintenance off: ' .. defences.reason) end
+  if wasEnabled then
+    dem.message((wasPass and 'Defence sequence: ' or 'Defence maintenance off: ') .. defences.reason)
+  end
 end
 
 function defences.reset(reason)
@@ -2332,6 +2339,19 @@ function defences.toggle()
   defences.enabled = true
   defences.reason = 'Waiting for character readiness.'
   dem.message('Defence maintenance on.')
+  dem.schedule()
+  return true
+end
+
+-- The manual alias requests one complete pass; repeated use never cancels it.
+function defences.run()
+  if dem.balances.dead then dem.message('Cannot run defences while you are dead.'); return false end
+  if not defences.enabled or not defences.pass then
+    defences.pass = {index = 1}
+    defences.enabled = true
+  end
+  defences.step()
+  dem.message('Defence sequence: ' .. defences.reason)
   dem.schedule()
   return true
 end
@@ -2360,11 +2380,53 @@ local function finite(n)
   return type(n) == 'number' and n == n and n ~= math.huge and n ~= -math.huge
 end
 
+local function submit(entry, manualPass)
+  local command = dem[entry.skill].buildDefence(entry.name)
+  if not command then defences.stop('Cannot build ' .. entry.name .. '.'); return end
+  local action = {kind = 'defence', defence = entry.name,
+    resource = manualPass and 'prompt' or entry.resource, manualPass = manualPass, started = dem.now()}
+  if not dem.balances.beginAction(action) then return end
+  if manualPass then defences.pass.action = action end
+  defences.reason = 'Submitted ' .. command .. '; waiting for ' .. (manualPass and 'a fresh ready prompt.' or 'confirmation and recovery.')
+  dem.defer('defence-watchdog', 10, function()
+    if dem.balances.action ~= action then return end
+    defences.stop('No confirmed completion for ' .. entry.name .. '; check the game response before retrying.')
+    if dem.hunt.enabled then dem.hunt.stop('The pending defence has not completed.') end
+  end)
+  send(command)
+end
+
+local function runPass()
+  local pass, b, v = defences.pass, dem.balances, dem.vitals
+  if pass.action and pass.action.completed then
+    pass.index, pass.action = pass.index + 1, nil
+  end
+  local entry = dem.diabolist.defences[pass.index]
+  if not entry then defences.stop('Complete; all seven commands submitted.'); return end
+  if b.action then defences.reason = 'Waiting for the current command to finish.'; return end
+  -- A manual pass can use the displayed compact prompt. It need not invent a
+  -- maximum or assume the game reports optional prone/stunned GMCP fields.
+  if not finite(v.hp) or v.hp &lt;= 0 or not finite(v.mp) or v.mp &lt; 0 then
+    defences.reason = 'Waiting for a health/mana prompt.'; return
+  end
+  if finite(v.maxmp) and v.maxmp &gt; 0 and v.mp / v.maxmp * 100 &lt;= dem.settings.manaLimit then
+    defences.stop('Mana reached the configured limit.'); return
+  end
+  if not b.bal or not b.eq or v.prone == true or v.stunned == true then
+    defences.reason = 'Waiting for balance/equilibrium or a known incapacitation to clear.'; return
+  end
+  if entry.mana and v.mp &lt; entry.mana then
+    defences.reason = 'Waiting for enough mana for ' .. entry.name .. '.'; return
+  end
+  submit(entry, true)
+end
+
 function defences.step()
   if not defences.enabled then return end
   local b, v = dem.balances, dem.vitals
   if b.dead then defences.stop('You are dead.'); return end
   if dem.hunt.enabled then defences.reason = 'Paused while Hunt is on.'; return end
+  if defences.pass then runPass(); return end
   if b.action then defences.reason = 'Waiting for the current command confirmation and recovery.'; return end
   if not finite(v.hp) or v.hp &lt;= 0 or not finite(v.mp) or v.mp &lt; 0
       or not finite(v.maxmp) or v.maxmp &lt;= 0 or v.prone == nil or v.stunned == nil then
@@ -2381,18 +2443,7 @@ function defences.step()
       if entry.mana and v.mp &lt; entry.mana then
         defences.reason = 'Waiting for enough mana for ' .. entry.name .. '.'; return
       end
-      local skill = dem[entry.skill]
-      local command = skill.buildDefence(entry.name)
-      if not command then defences.stop('Cannot build ' .. entry.name .. '.'); return end
-      local action = {kind = 'defence', defence = entry.name, resource = entry.resource, started = dem.now()}
-      if not b.beginAction(action) then return end
-      defences.reason = 'Waiting for ' .. entry.name .. ' confirmation and recovery.'
-      dem.defer('defence-watchdog', 10, function()
-        if b.action ~= action then return end
-        defences.stop('No confirmed completion for ' .. entry.name .. '; check the game response before retrying.')
-        if dem.hunt.enabled then dem.hunt.stop('The pending defence has not completed.') end
-      end)
-      send(command)
+      submit(entry, false)
       return
     end
   end
@@ -2434,7 +2485,7 @@ function dem.onPrompt(text)
 end
 
 function dem.resetConnection(event)
-  dem.defences.reset('Connection changed; type ddef to enable again.')
+  dem.defences.reset('Connection changed; type ddef to run the defence sequence again.')
   dem.hunt.stop('Connection changed; type hunt to enable again.')
   dem.hunt.lastAction = nil
   dem.hunt.resetTerminalHistory()

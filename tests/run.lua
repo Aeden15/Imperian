@@ -902,8 +902,8 @@ test('exported startup supports actual prompt and Hunt aliases after reload', fu
   assert(not dem.hunt.enabled)
 end)
 
-test('ddef summons first and confirmation plus a fresh prompt advances once', function()
-  reset(); vitals(); DEMONIC_TEST_DEFS_ALIAS(); dem.onPrompt()
+test('maintenance summons first and confirmation plus a fresh prompt advances once', function()
+  reset(); vitals(); dem.defences.toggle(); dem.onPrompt()
   eq(commands[#commands], 'summon ouroboros')
   local count = #commands
   dem.onPrompt(); tick(0); eq(#commands, count)
@@ -917,7 +917,7 @@ local function confirmDefence(name)
 end
 
 test('class confirmations sequence every defence and wait for the right recovery', function()
-  reset(); vitals(); DEMONIC_TEST_DEFS_ALIAS(); dem.onPrompt()
+  reset(); vitals(); dem.defences.toggle(); dem.onPrompt()
   confirmDefence('Summoned ouroboros'); eq(commands[#commands],'demon armor')
   confirmDefence('Demon armor'); eq(commands[#commands],'demon regeneration')
   confirmDefence('Demon regeneration'); eq(commands[#commands],'demon soulmask')
@@ -940,12 +940,12 @@ test('Ouroboros loss invalidates dependent defences and summons before replaceme
     DEMONIC_TEST_CLASS_TRIGGER(name)
   end
   DEMONIC_TEST_CLASS_TRIGGER('Missing ouroboros')
-  DEMONIC_TEST_DEFS_ALIAS(); dem.onPrompt(); eq(commands[#commands],'summon ouroboros')
+  dem.defences.toggle(); dem.onPrompt(); eq(commands[#commands],'summon ouroboros')
   confirmDefence('Summoned ouroboros'); eq(commands[#commands],'demon armor')
 end)
 
 test('maintenance pauses for Hunt and resumes without competing sends', function()
-  reset(); setup(); DEMONIC_TEST_DEFS_ALIAS(); dem.onPrompt()
+  reset(); setup(); dem.defences.toggle(); dem.onPrompt()
   local count=#commands
   DEMONIC_TEST_HUNT_ALIAS(); roster(); dem.onPrompt(); eq(#commands,count)
   confirmDefence('Summoned ouroboros'); eq(sent[#sent],'trace fire ice 1234')
@@ -954,15 +954,15 @@ test('maintenance pauses for Hunt and resumes without competing sends', function
   eq(#sent,traces); eq(commands[#commands],'demon armor'); assert(dem.defences.enabled)
 end)
 
-test('ddef off preserves a pending action and prevents further defence casts', function()
-  reset(); vitals(); DEMONIC_TEST_DEFS_ALIAS(); dem.onPrompt()
-  DEMONIC_TEST_DEFS_ALIAS(); local count=#commands
+test('maintenance off preserves a pending action and prevents further defence casts', function()
+  reset(); vitals(); dem.defences.toggle(); dem.onPrompt()
+  dem.defences.toggle(); local count=#commands
   confirmDefence('Summoned ouroboros'); dem.onPrompt(); tick(11)
   eq(#commands,count); assert(not dem.defences.enabled); eq(dem.balances.action,nil)
 end)
 
 test('unconfirmed defence times out without retrying or allowing competing attacks', function()
-  reset(); setup(); DEMONIC_TEST_DEFS_ALIAS(); dem.onPrompt()
+  reset(); setup(); dem.defences.toggle(); dem.onPrompt()
   local count=#commands
   tick(11); assert(not dem.defences.enabled); dem.onPrompt(); eq(#commands,count)
   DEMONIC_TEST_HUNT_ALIAS(); roster(); dem.onPrompt(); eq(#sent,0)
@@ -971,11 +971,11 @@ end)
 test('maintenance respects safety gates and resets on death connection and reload', function()
   for _,block in ipairs({'bal','eq','prone','stunned'}) do
     reset(); vitals({[block]=(block=='bal' or block=='eq') and '0' or '1'})
-    DEMONIC_TEST_DEFS_ALIAS(); dem.onPrompt(); eq(#commands,0)
+    dem.defences.toggle(); dem.onPrompt(); eq(#commands,0)
     vitals(); dem.onPrompt(); eq(commands[1],'summon ouroboros')
   end
   for _,kind in ipairs({'death','connection','reload'}) do
-    reset(); vitals(); DEMONIC_TEST_DEFS_ALIAS(); dem.onPrompt()
+    reset(); vitals(); dem.defences.toggle(); dem.onPrompt()
     if kind=='death' then vitals({hp='0'})
     elseif kind=='connection' then raiseEvent('sysDisconnectionEvent')
     else DEMONIC_TEST_LOAD() end
@@ -1032,7 +1032,7 @@ test('equilibrium defence cannot complete from balance packets or its cooldown t
   for _,name in ipairs({'Summoned ouroboros','Demon armor','Demon regeneration','Soulmask','Syphoning on','Vitality activated'}) do
     DEMONIC_TEST_CLASS_TRIGGER(name)
   end
-  DEMONIC_TEST_DEFS_ALIAS(); dem.onPrompt(); eq(commands[#commands],'nightfall')
+  dem.defences.toggle(); dem.onPrompt(); eq(commands[#commands],'nightfall')
   local action=dem.balances.action
   confirmDefence('Nightfall defence'); dem.balances.recovered('bal'); dem.onPrompt()
   eq(dem.balances.action,action)
@@ -1053,7 +1053,7 @@ test('a pending Vitality action must confirm and recover before Hunt can shield'
   for _,name in ipairs({'Summoned ouroboros','Demon armor','Demon regeneration','Soulmask','Syphoning on'}) do
     DEMONIC_TEST_CLASS_TRIGGER(name)
   end
-  DEMONIC_TEST_DEFS_ALIAS(); dem.onPrompt(); eq(sent[1],'trace vitality me')
+  dem.defences.toggle(); dem.onPrompt(); eq(sent[1],'trace vitality me')
   vitals({hp='40',maxhp='100'}); dem.hunt.toggle(); roster(); dem.onPrompt(); eq(#sent,1)
   dem.balances.taken('bal'); dem.balances.recovered('bal'); dem.onPrompt(); eq(#sent,1)
   DEMONIC_TEST_CLASS_TRIGGER('Vitality activated'); dem.onPrompt()
@@ -1061,15 +1061,15 @@ test('a pending Vitality action must confirm and recover before Hunt can shield'
 end)
 
 test('defence maintenance does not cast with low mana or malformed resources', function()
-  reset(); vitals({mp='10',maxmp='100'}); DEMONIC_TEST_DEFS_ALIAS(); dem.onPrompt()
+  reset(); vitals({mp='10',maxmp='100'}); dem.defences.toggle(); dem.onPrompt()
   assert(not dem.defences.enabled); eq(#commands,0)
-  reset(); vitals({mp='bad'}); DEMONIC_TEST_DEFS_ALIAS(); dem.onPrompt(); eq(#commands,0)
+  reset(); vitals({mp='bad'}); dem.defences.toggle(); dem.onPrompt(); eq(#commands,0)
 end)
 
 test('defence confirmation cannot reuse cached readiness or a partial GMCP update', function()
   for _,fresh in ipairs({'neither','bal','eq'}) do
     reset(); vitals(); dem.onPrompt('Health:3998 Mana:4459 (eb)')
-    DEMONIC_TEST_DEFS_ALIAS(); dem.onPrompt(); eq(commands[1],'summon ouroboros')
+    dem.defences.toggle(); dem.onPrompt(); eq(commands[1],'summon ouroboros')
     local action=dem.balances.action
     DEMONIC_TEST_CLASS_TRIGGER('Summoned ouroboros')
     local packet={hp='3998'}
@@ -1083,6 +1083,46 @@ test('defence confirmation cannot reuse cached readiness or a partial GMCP updat
     dem.onPrompt('Health:3998 Mana:4459')
     eq(commands[2],'demon armor'); eq(#commands,2)
   end
+end)
+
+test('ddef runs every defence from the compact prompt without toggling off or requiring success text', function()
+  reset(); dem.onPrompt('Health:363 Mana:372 (eb)')
+  for _,name in ipairs({'Summoned ouroboros','Demon armor','Demon regeneration','Soulmask','Syphoning on','Vitality activated','Nightfall defence'}) do
+    DEMONIC_TEST_CLASS_TRIGGER(name)
+  end
+  DEMONIC_TEST_DEFS_ALIAS(); tick(0); eq(commands[1],'summon ouroboros')
+  DEMONIC_TEST_DEFS_ALIAS(); tick(0); eq(#commands,1); assert(dem.defences.enabled)
+  local expected={'demon armor','demon regeneration','demon soulmask','demon syphon','trace vitality me','nightfall'}
+  for i,command in ipairs(expected) do
+    dem.onPrompt('Health:363 Mana:372 (eb)'); eq(commands[i+1],command); eq(#commands,i+1)
+  end
+  dem.onPrompt('Health:363 Mana:372 (eb)'); eq(#commands,7); assert(not dem.defences.enabled)
+  DEMONIC_TEST_DEFS_ALIAS(); tick(0); eq(commands[8],'summon ouroboros')
+end)
+
+test('manual defence pass waits for fresh readiness and respects observed incapacitation', function()
+  reset(); dem.onPrompt('Health:363 Mana:372 (eb)'); DEMONIC_TEST_DEFS_ALIAS(); tick(0)
+  dem.onPrompt('Health:363 Mana:372'); eq(#commands,1)
+  dem.onPrompt('Health:363 Mana:372 (e-)'); eq(#commands,1)
+  dem.onPrompt('Health:363 Mana:372 (eb)'); eq(commands[2],'demon armor')
+  reset(); vitals({stunned='1'}); DEMONIC_TEST_DEFS_ALIAS(); tick(0); eq(#commands,0)
+  vitals(); dem.onPrompt(); tick(0); eq(commands[1],'summon ouroboros')
+end)
+
+test('manual defence pass does not treat partial GMCP as a fresh ready prompt', function()
+  reset(); vitals(); dem.onPrompt(); DEMONIC_TEST_DEFS_ALIAS(); tick(0)
+  eq(commands[1],'summon ouroboros')
+  event('Char.Vitals',{hp='3998',bal='1'}); dem.onPrompt('Health:363 Mana:372'); eq(#commands,1)
+  event('Char.Vitals',{eq='1'}); dem.onPrompt('Health:363 Mana:372'); eq(commands[2],'demon armor')
+end)
+
+test('manual defence pass pauses during Hunt and death cancels the remaining sequence', function()
+  reset(); start(); DEMONIC_TEST_DEFS_ALIAS(); tick(0); eq(#sent,1)
+  assert(dem.defences.reason:find('Paused'))
+  dem.hunt.stop(); cycle(); eq(commands[#commands],'summon ouroboros')
+  local count=#commands
+  vitals({hp='0'}); dem.onPrompt(); tick(11); eq(#commands,count); assert(not dem.defences.enabled)
+  DEMONIC_TEST_DEFS_ALIAS(); tick(0); eq(#commands,count)
 end)
 
 for _, t in ipairs(tests) do

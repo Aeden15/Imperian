@@ -4,7 +4,7 @@ $root = Split-Path $PSScriptRoot -Parent
 $order = @($package.SelectNodes('//ScriptPackage/*[self::Script or self::ScriptGroup]/name') | ForEach-Object { $_.InnerText })
 if (($order -join '|') -cne 'System|Diabolist|Initialize Demonic') { throw 'Export load order must be System, Diabolist, Initialize Demonic.' }
 $defs = @($package.SelectNodes('//AliasPackage/AliasGroup[name="Diabolist"]/AliasGroup[name="Ritualism"]/Alias[name="Defs"]'))
-if ($defs.Count -ne 1 -or $defs[0].regex -cne '^ddef$' -or $defs[0].script -cne 'dem.defences.toggle()' -or $defs[0].GetAttribute('isActive') -cne 'yes') { throw 'Missing or incorrect Defs alias.' }
+if ($defs.Count -ne 1 -or $defs[0].regex -cne '^ddef$' -or $defs[0].script -cne 'dem.defences.run()' -or $defs[0].GetAttribute('isActive') -cne 'yes') { throw 'Missing or incorrect Defs alias.' }
 $ceased = $package.SelectSingleNode('//TriggerPackage//Trigger[name="Nightfall cease"]')
 if (!$ceased -or $ceased.regexCodeList.string -cne '^The darkness around you dissipates\.$') { throw 'Incorrect Nightfall cessation pattern.' }
 $fixtures = @{

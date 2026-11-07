@@ -15,6 +15,7 @@ local function boolean(value)
 end
 
 local function release()
+  if balances.action then balances.action.completed = true end
   balances.action = nil
   dem.cancel('attack-watchdog')
   dem.cancel('defence-watchdog')
@@ -105,6 +106,7 @@ function balances.beginAction(action)
   action.resource = action.resource or 'bal'
   action.lost = balances[action.resource] == false
   action.readiness = {bal = readinessSerial.bal, eq = readinessSerial.eq}
+  action.sentPrompt = dem.runtime.promptSerial or 0
   balances.action = action
   -- Local pessimism gates sends; it is not evidence of a server balance cycle.
   if action.resource ~= 'prompt' then balances[action.resource] = false end
@@ -123,8 +125,9 @@ end
 
 function balances.onPrompt()
   local action = balances.action
-  if action and action.kind == 'defence' and action.resource == 'prompt' and action.confirmed
-      and (dem.runtime.promptSerial or 0) > action.confirmedPrompt
+  if action and action.kind == 'defence' and action.resource == 'prompt'
+      and (action.manualPass or action.confirmed)
+      and (dem.runtime.promptSerial or 0) > (action.manualPass and action.sentPrompt or action.confirmedPrompt)
       and readinessSerial.bal > action.readiness.bal and readinessSerial.eq > action.readiness.eq
       and balances.bal == true and balances.eq == true then release() end
 end
