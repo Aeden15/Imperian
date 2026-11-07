@@ -18,7 +18,7 @@ Implement the approved chat design inline with Superpowers execution, TDD, final
 - [x] Add and observe failing startup, alias/trigger, maintenance, and Hammer regressions.
 - [x] Implement skill/class modules, shared action sequencing, lifecycle and XML generation repairs.
 - [x] Run complete behavioral/GUI/XML/Lua suite and review; fix material findings with regression tests.
-- [ ] Commit verified dependencies and fixes, push normally, verify remote SHA.
+- [x] Commit verified dependencies and fixes, push normally, verify remote SHA.
 
 ## Acceptance
 
@@ -29,3 +29,4 @@ Actual embedded scripts load in XML order. Actual aliases/triggers execute witho
 - Independent Superpowers review found one material stale-readiness issue. A dedicated regression reproduced it; action-scoped readiness observations now prevent a missing or one-bit GMCP prompt from advancing maintenance.
 - Final verification: 146 behavioral and 14 GUI tests passed; deterministic XML builds, embedded source synchronization, actual aliases/triggers, startup order, Lua syntax and `git diff --check` passed.
 - Vitality consumption/cooldown and missing loss messages remain explicitly deferred. Live native widgets and server message ordering require live acceptance.
+- Implementation committed as `7634ca9` and pushed to `origin/codex/legacy-gmcp-basher`; remote SHA verified. The unrelated mapper export remains local and untracked.
