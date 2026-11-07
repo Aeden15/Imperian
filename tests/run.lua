@@ -1,15 +1,19 @@
 local tests, failed, passed = {}, 0, 0
-local sent, gmcpSent, timers, handlers, saved, now, messages
+local sent, commands, gmcpSent, timers, handlers, saved, now, messages
 local function test(name, body) tests[#tests + 1] = {name, body} end
 local function eq(got, want)
   assert(got == want, 'expected ' .. tostring(want) .. ', got ' .. tostring(got))
 end
 local function reset(keepSettings)
   dem = nil
-  sent, gmcpSent, timers, handlers, now, messages = {}, {}, {}, {}, 0, {}
+  sent, commands, gmcpSent, timers, handlers, now, messages = {}, {}, {}, {}, {}, 0, {}
   if not keepSettings then saved = nil end
   gmcp = {}
-  function send(s) sent[#sent + 1] = s end
+  function send(s)
+    raiseEvent('sysDataSendRequest',s)
+    commands[#commands + 1] = s
+    if s:match('^trace ') then sent[#sent + 1] = s end
+  end
   function sendGMCP(s) gmcpSent[#gmcpSent + 1] = s end
   function cecho(s) messages[#messages + 1] = s end
   function getEpoch() return now end
@@ -54,10 +58,27 @@ local function event(name, payload)
   raiseEvent('gmcp.' .. name)
 end
 local function tick(seconds)
-  now = now + seconds
-  for _, timer in ipairs(timers) do
-    if timer.active and timer.at <= now then timer.active = false; timer.fn() end
+  local target, iterations = now + seconds, 0
+  while true do
+    local nextTimer
+    for _, timer in ipairs(timers) do
+      if timer.active and timer.at <= target and (not nextTimer or timer.at < nextTimer.at) then nextTimer = timer end
+    end
+    if not nextTimer then break end
+    iterations = iterations + 1; assert(iterations < 1000, 'timer loop did not settle')
+    now = nextTimer.at; nextTimer.active = false; nextTimer.fn()
   end
+  now = target
+end
+local function queryCount()
+  local count = 0
+  for _, message in ipairs(gmcpSent) do if message:match('^Char%.Items%.Room') then count=count+1 end end
+  return count
+end
+local function commandCount(command)
+  local count = 0
+  for _, value in ipairs(commands) do if value == command then count=count+1 end end
+  return count
 end
 local function vitals(overrides)
   local v = {bal='1', eq='1', hp='3998', maxhp='3998', mp='4459', maxmp='4772', prone='0', stunned='0', health='1'}
@@ -222,6 +243,8 @@ test('room arrivals and scalar or object removals update candidates', function()
   dem.onPrompt(); eq(sent[1],'trace fire ice 7')
   event('Char.Items.Remove',{location='room',item='7'}); cycle(); eq(#sent,1)
   event('Char.Items.Add',{location='room',item={id='8',name='a warrior ant',attrib='m'}})
+  assert(not dem.room.ready); dem.onPrompt(); eq(#sent,1)
+  roster({{id='8',name='a warrior ant',attrib='m'}})
   dem.onPrompt(); eq(sent[2],'trace fire ice 8')
   event('Char.Items.Remove',{location='room',item={id='8'}}); cycle(); eq(#sent,2)
 end)
@@ -245,7 +268,7 @@ test('installation in an already connected idle profile requests fresh contents'
   assert(not dem.hunt.enabled); assert(not dem.room.ready)
   local requested, subscribed = false, false
   for _, msg in ipairs(gmcpSent) do
-    if msg == 'Char.Items.Room' then requested = true end
+    if msg == 'Char.Items.Room ""' then requested = true end
     if msg:find('Core.Supports.Add',1,true) then subscribed = true end
   end
   assert(requested and subscribed, 'install must subscribe and refresh without another game prompt')
@@ -386,7 +409,8 @@ test('a removed generic manual target returns to the area list instead of anothe
   reset(); start(); roster({{id='1234',name='a warrior ant',attrib='m'},
     {id='7',name='a cave bat',attrib='m'},{id='8',name='a vampire bat',attrib='m'}})
   dem.targeting.set('bat'); cycle(); eq(sent[2],'trace fire ice 7')
-  event('Char.Items.Remove',{location='room',item='7'}); cycle()
+  event('Char.Items.Remove',{location='room',item='7'})
+  roster({{id='1234',name='a warrior ant',attrib='m'},{id='8',name='a vampire bat',attrib='m'}}); cycle()
   eq(sent[3],'trace fire ice 1234')
 end)
 test('protected only references remain globally targetable but never become hunting attacks', function()
@@ -427,6 +451,141 @@ test('renaming a pinned living denizen does not redirect a generic manual target
   dem.targeting.set('bat'); cycle(); eq(sent[2],'trace fire ice 7')
   event('Char.Items.Update',{location='room',item={id='7',name='a changed creature'}}); cycle()
   eq(sent[3],'trace fire ice 7'); eq(dem.target,'bat')
+end)
+test('room info after a prompt accepts its roster without another text prompt', function()
+  reset(); start(); dem.onPrompt(); room('Ant colony',102)
+  roster({{id='9',name='a warrior ant',attrib='m'}})
+  vitals({bal='0'}); vitals(); tick(0)
+  eq(dem.room.num,'102'); eq(sent[2],'trace fire ice 9')
+end)
+test('room info before a prompt also accepts a full roster immediately', function()
+  reset(); setup(); dem.hunt.toggle(); roster({}); tick(0)
+  room('Ant colony',102); roster({{id='9',name='a warrior ant',attrib='m'}}); tick(0)
+  eq(sent[1],'trace fire ice 9')
+end)
+test('missing roster retries GMCP once then ih once and times out at ten seconds', function()
+  reset(); setup(); gmcpSent={}; dem.hunt.toggle(); tick(0)
+  eq(queryCount(),1); eq(gmcpSent[#gmcpSent],'Char.Items.Room ""')
+  tick(0.99); eq(queryCount(),1); eq(commandCount('ih'),0)
+  tick(0.01); eq(queryCount(),2); tick(1); eq(commandCount('ih'),1)
+  tick(7.9); assert(dem.hunt.enabled); tick(0.1); assert(not dem.hunt.enabled)
+  eq(queryCount(),2); eq(commandCount('ih'),1); eq(commandCount('look'),0); eq(#sent,0)
+end)
+test('duplicate refresh reasons share a request and retry budget', function()
+  reset(); setup(); gmcpSent={}; dem.hunt.toggle()
+  dem.room.request('duplicate one'); dem.room.request('duplicate two'); tick(0)
+  eq(queryCount(),1); tick(2); eq(queryCount(),2); eq(commandCount('ih'),1)
+end)
+test('a valid empty room list cancels recovery timers without turning hunting off', function()
+  reset(); setup(); gmcpSent={}; dem.hunt.toggle(); tick(0)
+  roster({}); tick(12); assert(dem.hunt.enabled)
+  eq(queryCount(),1); eq(commandCount('ih'),0); eq(#sent,0)
+end)
+test('inventory lists cannot satisfy a pending room refresh', function()
+  reset(); setup(); dem.hunt.toggle(); tick(0)
+  event('Char.Items.List',{location='inv',items={{id='9',name='a warrior ant',attrib='m'}}})
+  tick(2); assert(not dem.room.ready); eq(commandCount('ih'),1); eq(#sent,0)
+end)
+test('standard outgoing movement blocks old targets until identity is confirmed', function()
+  reset(); start(); send('north'); roster({{id='9',name='a warrior ant',attrib='m'}})
+  vitals({bal='0'}); vitals(); tick(0)
+  assert(not dem.room.ready); eq(dem.room.num,nil); eq(dem.room.area,nil); eq(#sent,1)
+  tick(2); eq(commandCount('ih'),1)
+  roster({{id='9',name='a warrior ant',attrib='m'}}); tick(8)
+  assert(not dem.hunt.enabled); eq(#sent,1)
+end)
+test('failed movement can confirm and reconcile the previous room', function()
+  reset(); start(); send('n'); event('Room.WrongDir','n'); roster()
+  vitals({bal='0'}); vitals(); tick(0)
+  eq(dem.room.num,'101'); eq(dem.room.area,'Ant colony'); eq(sent[2],'trace fire ice 1234')
+end)
+test('rapid movement does not attack an intermediate room', function()
+  reset(); start(); send('n'); send('e'); room('Ant colony',102)
+  roster({{id='8',name='a warrior ant',attrib='m'}})
+  vitals({bal='0'}); vitals(); tick(0); eq(#sent,1)
+  room('Ant colony',103); roster({{id='9',name='a warrior ant',attrib='m'}}); tick(0)
+  eq(sent[2],'trace fire ice 9')
+end)
+test('movement joined with the shared separator waits for the last identity', function()
+  reset(); start(); send('n&&e'); room('Ant colony',102)
+  roster({{id='8',name='a warrior ant',attrib='m'}})
+  vitals({bal='0'}); vitals(); tick(0); eq(#sent,1)
+  room('Ant colony',103); roster({{id='9',name='a warrior ant',attrib='m'}}); tick(0)
+  eq(sent[2],'trace fire ice 9')
+end)
+test('removal before a kill still requests exactly one terminal reconciliation', function()
+  reset(); start(); gmcpSent={}
+  event('Char.Items.Remove',{location='room',item='1234'})
+  dem.hunt.onKill('a warrior ant'); dem.hunt.onMissing(); tick(0)
+  eq(queryCount(),1); assert(not dem.room.ready)
+end)
+test('kill removal and trailing error coalesce even when the first reply arrives early', function()
+  reset(); start(); gmcpSent={}; dem.hunt.onKill('a warrior ant'); tick(0); eq(queryCount(),1)
+  roster({}); event('Char.Items.Remove',{location='room',item='1234'})
+  dem.hunt.onMissing(); tick(0); eq(queryCount(),1)
+end)
+test('a terminal message from an older room cannot invalidate the new room', function()
+  reset(); start(); send('n'); room('Ant colony',102)
+  roster({{id='9',name='a warrior ant',attrib='m'}}); tick(0); gmcpSent={}
+  dem.hunt.onKill('a warrior ant'); dem.hunt.onMissing(); tick(0)
+  assert(dem.room.ready); eq(queryCount(),0)
+end)
+test('turning off hunting cancels pending retries and ih fallback', function()
+  reset(); setup(); gmcpSent={}; dem.hunt.toggle(); tick(0); dem.hunt.toggle(); tick(11)
+  eq(queryCount(),1); eq(commandCount('ih'),0); eq(#sent,0)
+end)
+test('disconnect cancels room retries and cannot reuse a late room list', function()
+  reset(); setup(); gmcpSent={}; dem.hunt.toggle(); tick(0)
+  raiseEvent('sysDisconnectionEvent'); roster(); tick(11)
+  eq(commandCount('ih'),0); eq(queryCount(),1); assert(not dem.room.ready)
+end)
+test('a later room cancels the earlier room fallback deadline', function()
+  reset(); setup(); dem.hunt.toggle(); tick(0); tick(0.5)
+  room('Ant colony',102); roster({}); tick(12)
+  eq(commandCount('ih'),0); assert(dem.hunt.enabled)
+end)
+test('the additional missing-target line follows the immutable submitted action', function()
+  reset(); start(); dem.targeting.setDenizen('fido2335')
+  DEMONIC_TEST_MISSING_TARGET('You detect nothing here by that name.')
+  roster(); vitals({bal='0'}); vitals(); tick(0)
+  eq(dem.target,'fido2335'); eq(sent[2],'trace fire ice 2335')
+end)
+test('hunt status reports pending room recovery details', function()
+  reset(); setup(); dem.hunt.toggle(); tick(1); messages={}; dem.hunt.status()
+  local output=table.concat(messages,' '):lower()
+  assert(output:find('refresh',1,true)); assert(output:find('age',1,true))
+  assert(output:find('retry',1,true)); assert(output:find('ih',1,true))
+  assert(output:find('hunt mode enabled',1,true), 'status must retain the initiating refresh reason')
+end)
+test('a full roster arriving after ih resumes without any text prompt', function()
+  reset(); setup(); dem.hunt.toggle(); tick(2); eq(commandCount('ih'),1); eq(#sent,0)
+  roster({{id='9',name='a warrior ant',attrib='m'}}); tick(0)
+  eq(sent[1],'trace fire ice 9'); assert(dem.room.ready)
+end)
+test('reloading with a pending refresh cannot fire an old ih fallback', function()
+  reset(); setup(); dem.hunt.toggle(); tick(0); DEMONIC_TEST_LOAD(); tick(12)
+  assert(not dem.hunt.enabled); eq(commandCount('ih'),0); eq(#sent,0)
+end)
+test('an outstanding look reply cannot confirm the following movement', function()
+  reset(); start(); send('look&&n'); vitals({bal='0'}); vitals(); tick(0)
+  room('Ant colony',101); roster(); tick(0)
+  eq(#sent,1); assert(not dem.room.ready); eq(dem.room.num,nil)
+  room('Ant colony',102); roster({{id='9',name='a warrior ant',attrib='m'}}); tick(0)
+  eq(sent[2],'trace fire ice 9')
+end)
+test('a duplicate intermediate identity cannot complete a later queued movement', function()
+  reset(); start(); send('n&&e'); vitals({bal='0'}); vitals(); tick(0)
+  room('Ant colony',102); room('Ant colony',102)
+  roster({{id='8',name='a warrior ant',attrib='m'}}); tick(0)
+  eq(#sent,1); eq(dem.room.num,nil)
+  room('Ant colony',103); roster({{id='9',name='a warrior ant',attrib='m'}}); tick(0)
+  eq(sent[2],'trace fire ice 9')
+end)
+test('two confirmed movements can return to the original room', function()
+  reset(); start(); send('n&&s'); room('Ant colony',102)
+  vitals({bal='0'}); vitals(); tick(0); eq(#sent,1)
+  room('Ant colony',101); roster(); tick(0)
+  eq(sent[2],'trace fire ice 1234'); eq(dem.room.num,'101')
 end)
 
 for _, t in ipairs(tests) do

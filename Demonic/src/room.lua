@@ -1,8 +1,11 @@
--- Room packets are an ordered stream. A movement prompt barrier discards the
--- preceding room's queued packets; GMCP has no generation tag for arbitrary
--- delayed, untagged replies, so the package cannot identify those by room ID.
-dem.room = {items = {}, order = {}, retired = {}, ready = false, phase = 'barrier'}
+-- Room packets are an ordered stream. Native item lists carry no room or
+-- request ID, so arbitrary delayed replies cannot be assigned to a room.
+-- Generations guard local callbacks and targets; Room.Info confirms identity.
+dem.room = {items = {}, order = {}, retired = {}, ready = false,
+  phase = 'unconfirmed', generation = 0}
 local room = dem.room
+local pendingMoves, lastIdentity = 0, nil
+local timerKeys = {'room-initial', 'room-retry', 'room-fallback', 'room-timeout'}
 
 local function id(value)
   if type(value) ~= 'string' and type(value) ~= 'number' then return nil end
@@ -78,10 +81,23 @@ function room.matchesAllowlist(item, allowed)
   return false
 end
 
-function room.reset()
+function room.cancelRefresh()
+  for _, key in ipairs(timerKeys) do dem.cancel(key) end
+  room.refresh = nil
+end
+
+local function invalidate()
+  room.cancelRefresh()
+  room.generation = room.generation + 1
   room.num, room.area = nil, nil
   room.items, room.order, room.retired = {}, {}, {}
-  room.ready, room.phase, room.subscribed = false, 'barrier', false
+  room.ready, room.phase = false, 'unconfirmed'
+end
+
+function room.reset()
+  invalidate()
+  pendingMoves, lastIdentity = 0, nil
+  room.subscribed, room.processingList = false, false
 end
 
 function room.subscribe()
@@ -92,42 +108,146 @@ function room.subscribe()
   end
 end
 
-function room.request()
-  if not room.num then return false end
-  -- Never bypass the first actual prompt after a movement packet.
-  if room.phase == 'barrier' then room.ready = false; return false end
-  room.ready, room.phase = false, 'waiting'
-  if type(sendGMCP) == 'function' then sendGMCP('Char.Items.Room') end
+local function hunting()
+  return dem.hunt and dem.hunt.enabled == true
+end
+
+local function request(reason, deferInitial)
+  local active = hunting()
+  local previous = room.refresh
+  -- An install-time query has no recovery budget. Enabling hunting upgrades
+  -- it to a fresh active cycle; repeated active requests share one budget.
+  if previous and previous.id == room.generation and previous.active == active then return true end
+  room.cancelRefresh()
+  room.ready, room.phase = false, room.num and 'waiting' or 'unconfirmed'
+  local refresh = {id = room.generation, started = dem.now(), attempts = 0,
+    ihSent = false, reason = reason or 'Room refresh', active = active}
+  room.refresh = refresh
+  local function current()
+    return room.refresh == refresh and room.generation == refresh.id
+      and refresh.active and hunting()
+  end
+  local function query()
+    refresh.attempts = refresh.attempts + 1
+    if type(sendGMCP) == 'function' then sendGMCP('Char.Items.Room ""') end
+  end
+  if deferInitial and active then
+    dem.defer('room-initial', 0, function() if current() then query() end end)
+  else
+    query()
+  end
+  if active then
+    dem.defer('room-retry', 1, function() if current() then query() end end)
+    dem.defer('room-fallback', 2, function()
+      if not current() then return end
+      refresh.ihSent = true
+      if type(send) == 'function' then send('ih') end
+    end)
+    dem.defer('room-timeout', 10, function()
+      if not current() then return end
+      local reason = room.num and 'The full room roster did not arrive.'
+        or 'The room identity was not confirmed by Room.Info.'
+      dem.hunt.stop(reason)
+    end)
+  end
   return true
+end
+
+function room.request(reason) return request(reason, false) end
+
+local directions = {n=true, ne=true, e=true, se=true, s=true, sw=true, w=true,
+  nw=true, u=true, d=true, ['in']=true, out=true, north=true, northeast=true,
+  east=true, southeast=true, south=true, southwest=true, west=true,
+  northwest=true, up=true, down=true}
+
+function room.onMovement(command)
+  if type(command) ~= 'string' then return end
+  local moves, first = 0, 1
+  local separator = dem.separator
+  while true do
+    local boundary = command:find(separator, first, true)
+    local part = command:sub(first, boundary and boundary - 1 or #command)
+    if directions[dem.trim(part):lower()] then moves = moves + 1 end
+    if not boundary then break end
+    first = boundary + #separator
+  end
+  if moves == 0 then return end
+  if pendingMoves == 0 and room.num then lastIdentity = {num = room.num, area = room.area} end
+  pendingMoves = pendingMoves + moves
+  invalidate()
+  if dem.hunt then dem.hunt.onRoomChanged() end
+  -- sysDataSendRequest runs before the original command is transmitted.
+  if hunting() then request('Movement awaiting Room.Info', true) end
+  changed()
+end
+
+local function area(value)
+  return type(value) == 'string' and dem.trim(value) ~= '' and value or nil
+end
+
+local function confirmed(identity)
+  invalidate()
+  room.num, room.area = identity.num, identity.area
+  room.phase = 'waiting'
+  if dem.hunt then dem.hunt.onRoomChanged() end
+  if hunting() then room.request('Room identity confirmed') end
+  changed()
+end
+
+function room.onWrongDir(payload)
+  if type(payload) ~= 'string' or pendingMoves == 0 then return end
+  pendingMoves = pendingMoves - 1
+  if pendingMoves == 0 and lastIdentity then
+    confirmed(lastIdentity)
+  else
+    invalidate()
+    if hunting() then room.request('Movement awaiting Room.Info') end
+    changed()
+  end
 end
 
 function room.onInfo(payload)
   if type(payload) ~= 'table' then return end
   local number = id(payload.num)
   if not number then return end
+  local identity = {num = number, area = area(payload.area)}
+  -- LOOK and duplicate updates also emit Room.Info. Repeating the last known
+  -- identity does not prove that a queued movement has executed. Otherwise a
+  -- look&&n reply could re-enable attacks in the room we are about to leave.
+  if pendingMoves > 0 and lastIdentity and number == lastIdentity.num then
+    if payload.area ~= nil then lastIdentity.area = identity.area end
+    changed()
+    return
+  end
+  lastIdentity = identity
+  if pendingMoves > 0 then
+    pendingMoves = pendingMoves - 1
+    if pendingMoves == 0 then
+      confirmed(identity)
+    else
+      invalidate()
+      if hunting() then room.request('Movement awaiting final Room.Info') end
+      changed()
+    end
+    return
+  end
   if number ~= room.num then
-    room.num = number
-    room.area = type(payload.area) == 'string' and payload.area or nil
-    if dem.trim(room.area) == '' then room.area = nil end
-    room.items, room.order, room.retired = {}, {}, {}
-    room.ready, room.phase = false, 'barrier'
-    if dem.hunt then dem.hunt.onRoomChanged() end
+    confirmed(identity)
+    return
   elseif payload.area ~= nil then
-    room.area = type(payload.area) == 'string' and payload.area or nil
-    if dem.trim(room.area) == '' then room.area = nil end
+    room.area = identity.area
+  else
+    lastIdentity.area = room.area
   end
   changed()
 end
 
 function room.onPrompt()
-  if room.num and room.phase == 'barrier' then
-    room.phase = 'waiting'
-    room.request()
-  end
+  -- Room.Info and complete room lists synchronize without a text prompt.
 end
 
 function room.onList(payload)
-  if not room.num or room.phase == 'barrier' or type(payload) ~= 'table'
+  if not room.num or type(payload) ~= 'table'
       or payload.location ~= 'room' or type(payload.items) ~= 'table' then return end
   local items, order = {}, {}
   for _, value in ipairs(payload.items) do
@@ -138,18 +258,21 @@ function room.onList(payload)
     end
   end
   local old = room.items
+  room.cancelRefresh()
   room.items, room.order, room.ready, room.phase = items, order, true, 'ready'
+  room.processingList = true
   for key in pairs(old) do
     if not items[key] then
       room.retired[key] = true
       if dem.hunt then dem.hunt.onRemoved(key) end
     end
   end
+  room.processingList = false
   changed()
 end
 
 local function delta(payload, liveAdd)
-  if not room.num or room.phase == 'barrier' or type(payload) ~= 'table'
+  if not room.num or type(payload) ~= 'table'
       or payload.location ~= 'room' then return end
   local value = payload.item
   local key = type(value) == 'table' and id(value.id) or nil
@@ -166,7 +289,7 @@ function room.onAdd(payload) delta(payload, true) end
 function room.onUpdate(payload) delta(payload, false) end
 
 function room.onRemove(payload)
-  if not room.num or room.phase == 'barrier' or type(payload) ~= 'table'
+  if not room.num or type(payload) ~= 'table'
       or payload.location ~= 'room' then return end
   local value = payload.item
   local key = id(type(value) == 'table' and value.id or value)
@@ -182,7 +305,7 @@ end
 -- This lookup may use a known same-room snapshot while its refresh is pending.
 -- It is for target ownership/removal only; resolve() below gates all attacks.
 function room.identify(reference, preferredKey, eligibleOnly)
-  if not room.num or room.phase == 'barrier' then return nil, 'The room identity is not ready.' end
+  if not room.num then return nil, 'The room identity is not ready.' end
   local valid = dem.validReference(reference)
   if not valid then return nil, 'Invalid denizen reference.' end
   local ref, found, foundKey = valid:lower(), nil, nil

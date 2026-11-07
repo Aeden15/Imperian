@@ -63,8 +63,8 @@ function Add-Trigger($parent, [string]$name, [string]$pattern, [string]$script, 
     [void]$parent.AppendChild($node)
 }
 
-$scriptRoot = Get-Group '//ScriptPackage/ScriptGroup[name="Demonic"]'
-$system = Get-Group '//ScriptPackage/ScriptGroup[name="Demonic"]/ScriptGroup[name="System"]'
+$scriptRoot = Get-Group '//ScriptPackage'
+$system = Get-Group '//ScriptPackage/ScriptGroup[name="System"]'
 # Add in reverse order because these shared scripts must precede child folders.
 Add-Script $system 'Balances and Vitals' 'balances' $true
 Add-Script $system 'Targeting' 'targeting' $true
@@ -74,7 +74,7 @@ Add-Script (Get-Group '//ScriptPackage//ScriptGroup[name="Autobasher"]') 'Hunt C
 Add-Script (Get-Group '//ScriptPackage//ScriptGroup[name="Ritualism"]') 'Ritualism Commands' 'ritualism'
 Add-Script $scriptRoot 'Initialize Demonic' 'bootstrap'
 
-$aliases = Get-Group '//AliasPackage/AliasGroup[name="Demonic"]/AliasGroup[name="System"]'
+$aliases = Get-Group '//AliasPackage/AliasGroup[name="System"]'
 $targetAliases = $aliases.SelectSingleNode('AliasGroup[name="Targeting"]')
 if (!$targetAliases) {
     $targetAliases = $doc.CreateElement('AliasGroup')
@@ -87,7 +87,7 @@ foreach ($legacyName in @('Target player','Target denizen','Clear target')) {
     Remove-Owned $targetAliases 'Alias' $legacyName
 }
 Add-Alias $targetAliases 'Targeting' '^t (\w+)$' 'dem.targeting.set(matches[2])'
-$huntAliases = Get-Group '//AliasPackage/AliasGroup[name="Demonic"]/AliasGroup[name="System"]/AliasGroup[name="Autobasher"]'
+$huntAliases = Get-Group '//AliasPackage/AliasGroup[name="System"]/AliasGroup[name="Autobasher"]'
 Add-Alias $huntAliases 'Hunt mode' '^hunt$' 'dem.hunt.toggle()'
 Add-Alias $huntAliases 'Hunt add' '^hunt add (.+)$' 'dem.hunt.add(matches[2])'
 Add-Alias $huntAliases 'Hunt remove' '^hunt remove (.+)$' 'dem.hunt.remove(matches[2])'
@@ -95,7 +95,7 @@ Add-Alias $huntAliases 'Hunt list' '^hunt list$' 'dem.hunt.list()'
 Add-Alias $huntAliases 'Hunt status' '^hunt status$' 'dem.hunt.status()'
 Add-Alias $huntAliases 'Hunt limits' '^hunt limits (\d+(?:\.\d+)?) (\d+(?:\.\d+)?)$' 'dem.hunt.setLimits(tonumber(matches[2]), tonumber(matches[3]))'
 
-$balances = Get-Group '//TriggerPackage/TriggerGroup[name="Demonic"]/TriggerGroup[name="System"]/TriggerGroup[name="Balances"]'
+$balances = Get-Group '//TriggerPackage/TriggerGroup[name="System"]/TriggerGroup[name="Balances"]'
 Add-Trigger $balances 'Balance loss duration' '^Balance Taken:\s*(\d+(?:\.\d+)?)s\s*$' 'dem.balances.taken("bal", tonumber(matches[2]))'
 Add-Trigger $balances 'Equilibrium loss duration' '^Equilibrium Taken:\s*(\d+(?:\.\d+)?)s\s*$' 'dem.balances.taken("eq", tonumber(matches[2]))'
 Add-Trigger $balances 'Balance regained' '^You have recovered balance\.$' 'dem.balances.recovered("bal")'
@@ -103,9 +103,9 @@ Add-Trigger $balances 'Equilibrium regained' '^You have (?:regained your mental 
 Add-Trigger $balances 'Balance unavailable' '^You must regain (?:your )?balance first\.$' 'dem.balances.taken("bal")'
 Add-Trigger $balances 'Equilibrium unavailable' '^You must regain (?:your )?equilibrium first\.$' 'dem.balances.taken("eq")'
 Add-Trigger $balances 'Prompt readiness' '' 'dem.onPrompt(line)' 7
-$hunting = Get-Group '//TriggerPackage/TriggerGroup[name="Demonic"]/TriggerGroup[name="System"]/TriggerGroup[name="Autobasher"]'
+$hunting = Get-Group '//TriggerPackage/TriggerGroup[name="System"]/TriggerGroup[name="Autobasher"]'
 Add-Trigger $hunting 'Denizen slain' '^The final blow is too much, you have slain (.+)\.$' 'dem.hunt.onKill(matches[2])'
-Add-Trigger $hunting 'Target absent' '^(?:You do not see that individual here\.|Nothing can be seen here by that name\.|Ahh, I am truly sorry, but I do not see anyone by that name here\.)$' 'dem.hunt.onMissing()'
+Add-Trigger $hunting 'Target absent' '^(?:You do not see that individual here\.|Nothing can be seen here by that name\.|Ahh, I am truly sorry, but I do not see anyone by that name here\.|You detect nothing here by that name\.)$' 'dem.hunt.onMissing()'
 
 $settings = [Xml.XmlWriterSettings]::new()
 $settings.Indent = $true

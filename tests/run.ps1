@@ -9,6 +9,7 @@ if ((Get-FileHash -LiteralPath $xmlPath -Algorithm SHA256).Hash -ne $firstHash) 
 if ($firstHash -ne $originalHash) { throw 'Bundled XML was stale. Rebuild, then rerun tests.' }
 if ((Get-Item -LiteralPath $xmlPath).Length -gt 1048576) { throw 'Generated package exceeds expected size.' }
 [xml]$package = Get-Content -LiteralPath $xmlPath -Raw
+[xml]$template = Get-Content -LiteralPath (Join-Path $root 'tools/Demonic.template.xml') -Raw
 if ($package.SelectNodes('//Trigger/Trigger | //Trigger/TriggerGroup').Count -ne 0) { throw 'Nested generated triggers.' }
 $scripts = @($package.SelectNodes('//ScriptPackage//Script/script'))
 $sourceFiles = @{
@@ -17,6 +18,40 @@ $sourceFiles = @{
     'Ritualism Commands' = 'ritualism'; 'Initialize Demonic' = 'bootstrap'
 }
 if ($scripts.Count -ne $sourceFiles.Count) { throw 'Unexpected embedded Script count.' }
+# The export is flat: Package Manager supplies the single Demonic wrapper.
+# Compare the entire non-owned skeleton, including group attributes/metadata,
+# rather than merely accepting folder paths that happen to contain our leaves.
+$preserved = $package.Clone()
+$owned = @{
+    Script = @($sourceFiles.Keys)
+    Alias = @('Hunt mode','Hunt add','Hunt remove','Hunt list','Hunt status','Hunt limits','Targeting')
+    Trigger = @('Balance loss duration','Equilibrium loss duration','Balance regained','Equilibrium regained','Balance unavailable','Equilibrium unavailable','Prompt readiness','Denizen slain','Target absent')
+}
+foreach ($tag in $owned.Keys) {
+    foreach ($node in @($preserved.SelectNodes(('//' + $tag)))) {
+        if ($node.SelectSingleNode('name').InnerText -cin $owned[$tag]) { [void]$node.ParentNode.RemoveChild($node) }
+    }
+}
+if ($preserved.OuterXml -cne $template.OuterXml) { throw 'Build changed the preserved export layout or metadata.' }
+foreach ($kind in @('Trigger','Alias','Script')) {
+    $top = @($package.SelectNodes(('//{0}Package/{0}Group/name' -f $kind)) | ForEach-Object { $_.InnerText })
+    $expected = if ($kind -eq 'Script') { 'System|Diabolist' } else { 'Diabolist|System' }
+    if (($top -join '|') -cne $expected) { throw ('Flat export roots changed: ' + $kind) }
+    if ($package.SelectNodes(('//{0}Package//{0}Group[name="Demonic"]' -f $kind)).Count -ne 0) {
+        throw ('Duplicate inner Demonic folder: ' + $kind)
+    }
+}
+$sharedOrder = @($package.SelectNodes('//ScriptPackage/ScriptGroup[name="System"]/*[self::Script or self::ScriptGroup]/name') | ForEach-Object { $_.InnerText })
+if (($sharedOrder[0..2] -join '|') -cne 'Core|Targeting|Balances and Vitals') { throw 'Shared scripts must load before child modules.' }
+$lastScript = $package.SelectSingleNode('//ScriptPackage/*[self::Script or self::ScriptGroup][last()]')
+if ($lastScript.LocalName -cne 'Script' -or $lastScript.SelectSingleNode('name').InnerText -cne 'Initialize Demonic') {
+    throw 'Initialize Demonic must be the final standalone script.'
+}
+$config = Get-Content -LiteralPath (Join-Path $root 'Demonic/config.lua') -Raw
+if ($config -cnotmatch '(?m)^created = "2026-11-07T01:33:06-06:00"\r?$') { throw 'Export creation timestamp was not preserved.' }
+if ($config -cnotmatch '(?m)^version = \[\[0\.1\.2\]\]\r?$' -or $config -cnotmatch '(?s)description = \[\[Shared targeting.+?\]\]') {
+    throw 'Package version or description is missing.'
+}
 foreach ($name in $sourceFiles.Keys) {
     $nodes = @($package.SelectNodes(('//ScriptPackage//Script[name="{0}"]/script' -f $name)))
     $source = Get-Content -LiteralPath (Join-Path $root ('Demonic/src/{0}.lua' -f $sourceFiles[$name])) -Raw
@@ -24,7 +59,7 @@ foreach ($name in $sourceFiles.Keys) {
         throw ('Embedded Script does not match its source: ' + $name)
     }
 }
-$targetFolder = $package.SelectSingleNode('//AliasPackage/AliasGroup[name="Demonic"]/AliasGroup[name="System"]/AliasGroup[name="Targeting"]')
+$targetFolder = $package.SelectSingleNode('//AliasPackage/AliasGroup[name="System"]/AliasGroup[name="Targeting"]')
 if (!$targetFolder) { throw 'Targeting alias folder is missing.' }
 $targetNodes = @($targetFolder.SelectNodes('.//Alias'))
 if ($targetNodes.Count -ne 1) { throw 'Targeting must contain exactly one alias.' }
@@ -32,6 +67,8 @@ $targetAlias = $targetNodes[0]
 if ($targetAlias.name -cne 'Targeting' -or $targetAlias.regex -cne '^t (\w+)$' -or $targetAlias.script -cne 'dem.targeting.set(matches[2])') {
     throw 'Targeting alias must use the exact approved name, regex, and script.'
 }
+if ($package.SelectNodes('//Alias[@isActive="yes" and name="Targeting"]').Count -ne 1) { throw 'Expected one active Targeting alias.' }
+if ($package.SelectNodes('//Alias[@isActive="yes" and regex="^hunt$"]').Count -ne 1) { throw 'Expected one active Hunt mode alias.' }
 if ($package.SelectNodes('//Alias[name="Target player" or name="Target denizen" or name="Clear target"]').Count -ne 0) {
     throw 'Legacy targeting aliases remain in the package.'
 }
@@ -41,7 +78,7 @@ foreach ($command in @('t ant','t ant427409','t 427409','t clear')) {
 foreach ($command in @('t player Name','t denizen ant','t ant extra',' t ant','t  ant','t ant ')) {
     if ($command -cmatch $targetAlias.regex) { throw ('Targeting alias incorrectly accepts: ' + $command) }
 }
-$missingNodes = @($package.SelectNodes('//TriggerPackage/TriggerGroup[name="Demonic"]/TriggerGroup[name="System"]/TriggerGroup[name="Autobasher"]/Trigger[name="Target absent"]'))
+$missingNodes = @($package.SelectNodes('//TriggerPackage/TriggerGroup[name="System"]/TriggerGroup[name="Autobasher"]/Trigger[name="Target absent"]'))
 if ($missingNodes.Count -ne 1) { throw 'Target absent trigger is missing or duplicated.' }
 $missingTrigger = $missingNodes[0]
 $missingPatterns = @($missingTrigger.SelectNodes('regexCodeList/string'))
@@ -50,6 +87,7 @@ $missingLines = @(
     'You do not see that individual here.'
     'Nothing can be seen here by that name.'
     'Ahh, I am truly sorry, but I do not see anyone by that name here.'
+    'You detect nothing here by that name.'
 )
 foreach ($line in $missingLines) {
     if ($line -cnotmatch $missingPatterns[0].InnerText) { throw ('Target absent trigger rejects: ' + $line) }
@@ -89,9 +127,9 @@ try {
     }
     & luac -p (Join-Path $root 'Demonic/config.lua')
     if ($LASTEXITCODE -ne 0) { throw 'Lua syntax error: Demonic/config.lua' }
-    $hunt = $package.SelectSingleNode('//AliasPackage/AliasGroup[name="Demonic"]/AliasGroup[name="System"]/AliasGroup[name="Autobasher"]/Alias[name="Hunt mode"]')
+    $hunt = $package.SelectSingleNode('//AliasPackage/AliasGroup[name="System"]/AliasGroup[name="Autobasher"]/Alias[name="Hunt mode"]')
     if (!$hunt -or $hunt.regex -ne '^hunt$') { throw 'Hunt mode alias is missing or misplaced.' }
-    $balanceFolder = $package.SelectSingleNode('//TriggerPackage/TriggerGroup[name="Demonic"]/TriggerGroup[name="System"]/TriggerGroup[name="Balances"]')
+    $balanceFolder = $package.SelectSingleNode('//TriggerPackage/TriggerGroup[name="System"]/TriggerGroup[name="Balances"]')
     if (@($balanceFolder.SelectNodes('Trigger')).Count -lt 5) { throw 'System balance triggers are missing.' }
     Write-Output 'XML structure, source synchronization, alias/trigger contracts, and all Lua syntax: PASS'
 } finally {

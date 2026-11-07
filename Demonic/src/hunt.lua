@@ -1,19 +1,26 @@
 dem.hunt = {enabled = false, reason = 'Disabled.'}
 local hunt = dem.hunt
-local selected, manualReference, stateWaiting, watchedAction
+local selected, manualReference, stateWaiting, waitingGeneration, watchedAction
 
 local function message(text) dem.message(text) end
 local function schedule() if dem.schedule then dem.schedule() end end
 local function cancelState()
   stateWaiting = false
+  waitingGeneration = nil
   dem.cancel('state-watchdog')
 end
 local function waitForState(reason)
   hunt.reason = reason or 'Waiting for room or character data.'
-  if stateWaiting then return end
+  local generation = dem.room.generation
+  if stateWaiting and waitingGeneration == generation then return end
   stateWaiting = true
+  waitingGeneration = generation
   dem.defer('state-watchdog', 10, function()
-    if hunt.enabled and stateWaiting then hunt.stop('Required room or character data did not arrive.') end
+    if hunt.enabled and stateWaiting and waitingGeneration == generation then
+      if not dem.room.num then hunt.stop('Room identity was not confirmed after GMCP and ih recovery.')
+      elseif not dem.room.ready then hunt.stop('A full room roster did not arrive after GMCP and ih recovery.')
+      else hunt.stop('Required character data did not arrive.') end
+    end
   end)
 end
 local function watchAction(action)
@@ -35,6 +42,7 @@ end
 function hunt.stop(reason)
   local wasEnabled = hunt.enabled
   hunt.enabled = false
+  if dem.room.cancelRefresh then dem.room.cancelRefresh() end
   hunt.reason = reason or 'Disabled by user.'
   cancelState()
   dem.cancel('attack-watchdog')
@@ -49,7 +57,7 @@ function hunt.toggle()
   manualReference = dem.targeting.kind == 'denizen' and dem.targeting.source == 'manual' and dem.target or nil
   selected, hunt.enabled = nil, true
   dem.room.subscribe()
-  dem.room.request()
+  dem.room.request('Hunt mode enabled')
   waitForState('Waiting for a fresh room roster.')
   message('Hunt mode on.')
   schedule()
@@ -180,7 +188,7 @@ function hunt.step()
   -- Sending a generic word here would let the server switch matching denizens.
   local command, err = dem.ritualism.buildTrace({'fire', 'ice'}, candidate.key)
   if not command then hunt.stop(err or 'Cannot build the hunting attack.'); return end
-  local action = {reference = dem.target, key = candidate.key, room = room.num,
+  local action = {reference = dem.target, key = candidate.key, room = room.num, generation = room.generation,
     item = candidate.item, retired = false, started = dem.now()}
   if not b.beginAction(action) then return end
   hunt.lastAction = action
@@ -189,19 +197,37 @@ function hunt.step()
   send(command)
 end
 
+local function belongsToRoom(action)
+  return action and action.room == dem.room.num and action.generation == dem.room.generation
+end
+
+local function reconcile(action)
+  if not hunt.enabled or not belongsToRoom(action) or action.refreshRequested then return end
+  action.refreshRequested = true
+  -- An authoritative full snapshot already reconciles its own missing items.
+  if dem.room.processingList then return end
+  dem.room.request('Submitted target left or died')
+  waitForState('Waiting for room contents after a target ended.')
+  schedule()
+end
+
 local function retire(action)
-  if not action or action.retired then return end
-  action.retired = true
-  if action.room ~= dem.room.num then return end
-  dem.room.retired[action.key] = true
-  -- Lifecycle messages belong to the immutable submitted action, never to a
-  -- subsequently selected manual target.
-  if dem.target == action.reference and selected and selected.key == action.key
-      and selected.room == action.room then
-    manualReference, selected = nil, nil
-    dem.targeting.clear('hunt')
+  if not action then return end
+  if not action.retired then
+    action.retired = true
+    if belongsToRoom(action) then
+      dem.room.retired[action.key] = true
+      -- Lifecycle messages belong to the immutable submitted action, never to a
+      -- subsequently selected manual target.
+      if dem.target == action.reference and selected and selected.key == action.key
+          and selected.room == action.room then
+        manualReference, selected = nil, nil
+        dem.targeting.clear('hunt')
+      end
+    end
   end
-  if hunt.enabled then dem.room.request(); waitForState(); schedule() end
+  -- A preceding GMCP Remove may have retired this action before its kill text.
+  reconcile(action)
 end
 
 function hunt.onKill(name)
@@ -212,7 +238,10 @@ function hunt.onMissing() retire(hunt.lastAction) end
 
 function hunt.onRemoved(key)
   local action = hunt.lastAction
-  if action and action.key == key and action.room == dem.room.num then action.retired = true end
+  if action and action.key == key and belongsToRoom(action) then
+    action.retired = true
+    reconcile(action)
+  end
   if selected and selected.key == key and selected.room == dem.room.num then
     selected, manualReference = nil, nil
     dem.targeting.clear('hunt')
@@ -271,11 +300,16 @@ end
 function hunt.status()
   local v, b = dem.vitals, dem.balances
   local function value(n) return n ~= nil and tostring(n) or 'unknown' end
+  local refresh = dem.room.refresh
+  local age = refresh and string.format('%.1fs', math.max(0, dem.now() - refresh.started)) or 'none'
   message('Hunt mode ' .. (hunt.enabled and 'on' or 'off') .. '; area: ' .. (dem.room.area or 'unknown')
     .. '; target: ' .. (dem.target or 'none') .. '; limits: ' .. dem.settings.hpLimit .. '% health, '
     .. dem.settings.manaLimit .. '% mana; HP: ' .. value(v.hp) .. '/' .. value(v.maxhp)
     .. '; MP: ' .. value(v.mp) .. '/' .. value(v.maxmp) .. '; balance: ' .. value(b.bal)
-    .. '; equilibrium: ' .. value(b.eq) .. '; ' .. hunt.reason)
+    .. '; equilibrium: ' .. value(b.eq) .. '; refresh: ' .. (dem.room.phase or 'unknown')
+    .. '; request age: ' .. age .. '; retry: ' .. tostring(refresh and math.max(0, refresh.attempts - 1) or 0)
+    .. '; ih: ' .. (refresh and refresh.ihSent and 'sent' or 'not sent')
+    .. '; refresh reason: ' .. (refresh and refresh.reason or 'none') .. '; ' .. hunt.reason)
   return hunt.enabled
 end
 function hunt.setLimits(hp, mana)

@@ -21,16 +21,18 @@ local function gmcpHandler(event, fn)
     for field in event:gmatch('[^.]+') do
       value = type(value) == 'table' and value[field] or nil
     end
-    if type(value) == 'table' then fn(value) end
+    if value ~= nil then fn(value) end
   end)
 end
 
 gmcpHandler('Char.Vitals', dem.balances.onVitals)
 gmcpHandler('Room.Info', dem.room.onInfo)
+gmcpHandler('Room.WrongDir', dem.room.onWrongDir)
 gmcpHandler('Char.Items.List', dem.room.onList)
 gmcpHandler('Char.Items.Add', dem.room.onAdd)
 gmcpHandler('Char.Items.Remove', dem.room.onRemove)
 gmcpHandler('Char.Items.Update', dem.room.onUpdate)
+dem.bind('sysDataSendRequest', function(_, command) dem.room.onMovement(command) end)
 dem.bind('sysDisconnectionEvent', dem.resetConnection)
 dem.bind('sysConnectionEvent', dem.resetConnection)
 dem.bind('sysProtocolEnabled', function(_, protocol)
@@ -52,6 +54,6 @@ if type(gmcp) == 'table' then
     dem.room.onInfo(gmcp.Room.Info)
     -- This identity was cached before installation, rather than received during
     -- a movement block. Request a fresh roster without waiting for game text.
-    dem.room.onPrompt()
+    dem.room.request('Installation into a connected profile')
   end
 end

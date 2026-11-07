@@ -11,5 +11,5 @@ Default safety stops: 30% health and 10% mana; `hunt limits <hp%> <mana%>` chang
 Healing is left to Imperian autocuring. GMCP must be enabled. No movement or auto-updating.
 
 Source and usage: https://github.com/Aeden15/Imperian]]
-version = [[0.1.1]]
-created = "2026-11-06T23:45:11-06:00"
+version = [[0.1.2]]
+created = "2026-11-07T01:33:06-06:00"

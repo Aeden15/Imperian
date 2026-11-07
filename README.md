@@ -5,12 +5,16 @@ Demonic is a Mudlet package providing shared targeting and area-specific hunting
 
 ## Installation and first hunt
 
-1. Download [Demonic.xml](Demonic/Demonic.xml) and import it using Mudlet's Package Manager. The XML contains all runtime code; the `src` directory is for development only. When upgrading to 0.1.1, remove the installed Demonic package first, then import the rebuilt XML. This replaces the old targeting aliases and triggers. Your profile's `Demonic-settings.lua` file persists, including area lists and thresholds.
+1. Download [Demonic.xml](Demonic/Demonic.xml) and import it using Mudlet's Package Manager. The XML contains all runtime code; the `src` directory is for development only. When upgrading to 0.1.2, remove the installed Demonic package first, then import the rebuilt XML. Keep one active Demonic package and one active **Hunt mode** alias so an older copy cannot also handle `hunt`. Your profile's `Demonic-settings.lua` file persists, including area lists and thresholds.
 2. Enable GMCP in your Imperian connection settings, and enter an area you want to hunt. The game command separator should be `&&` (`CONFIG SEPARATOR &&`); `dem.separator` uses the same value.
 3. Add a whole word or full room description to this area's list, for example `hunt add ant`, `hunt add bat`, or `hunt add a warrior ant`. Single words match whole words in denizen names; longer descriptions match the full name. Use `hunt list` to review the current area and its list. A new area has an empty list.
 4. Enter `hunt` to enable hunting; enter `hunt` again to turn it off. Use `hunt status` to inspect the mode, target, readiness, or reason it is waiting.
 
 Hunting stays enabled while you move manually. It refreshes the room, uses that area's list, and waits when no eligible denizens are present. It does not move you, manage defenses, sip, or cure.
+
+While hunting is active, a new `Room.Info` identity immediately requests a complete room roster with `Char.Items.Room ""`; it does not wait for another prompt. An unresolved request retries once after one second, then sends `ih` once at two seconds. If reconciliation is still unresolved after ten seconds, hunting turns off with a diagnostic. Recovery never sends `look`, and turning hunting off, disconnecting, or reloading cancels it.
+
+Sending a standard movement command makes the previous room's targets ineligible immediately. A confirmed failed move reconciles the last known room. A room roster cannot establish an unknown room identity; attacks wait for both a confirmed identity and a complete roster. Kill, removal, and missing-target signals share one refresh, while the existing balance/equilibrium and action cooldown gates still control the next attack. `hunt status` includes the refresh phase, request age, retry count, and whether the `ih` fallback has been sent.
 
 ## Targets and controls
 
@@ -46,7 +50,7 @@ dem.joinCommands({"stand", "look"}) -- "stand&&look"
 - Balance/equilibrium loss, gain, and prompt-readiness triggers live in **Triggers → Demonic → System → Balances**.
 - Room GMCP handling lives in **System → Api stuff**; the hunt controller in **System → Autobasher**; trace construction in **Diabolist → Ritualism**.
 
-These paths describe the XML's original inner `Demonic` folder. Package Manager may add a package wrapper also named `Demonic`, so the editor can display `Demonic → Demonic → System`. The original inner folders are preserved.
+The XML preserves the newer exported layout: **Diabolist** and **System** are direct roots for triggers and aliases; scripts have **System**, **Diabolist**, and a final standalone **Initialize Demonic** script. Package Manager adds the **Demonic** wrapper on import, so the editor displays **Demonic → System** without a duplicate inner **Demonic** folder. Group metadata and the exported creation timestamp are preserved.
 
 Duality is configured as learned for this character (`dem.ritualism.duality = true`). It is passive: there is no activation command. The builder accepts one or two symbols, rejects more than two, and rejects two when the capability is false. Fire and Ice each cost 9 mana. Reported balance durations are diagnostic; no timer grants readiness.
 
@@ -59,6 +63,6 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools/build.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File tests/run.ps1
 ```
 
-The build uses `tools/Demonic.template.xml` to preserve the original folder structure and bundles readable Lua sources into the XML. Edit the sources/template rather than the generated XML. Tests check repeat-build stability, compare every embedded Script with its source, execute the embedded scripts and actual targeting alias/missing-target trigger bodies with external Mudlet I/O simulated, validate alias/trigger contracts and folder placement, and compile all embedded Lua plus `config.lua`. Code uses Lua 5.1-compatible syntax; local verification uses the installed Lua 5.4 runtime.
+The build uses `tools/Demonic.template.xml` to preserve the exported folder structure and metadata and bundles readable Lua sources into the XML. Edit the sources/template rather than the generated XML. Tests check repeat-build stability, preservation of the exported layout and creation timestamp, all seven embedded Scripts against their sources, and the single active Hunt/Targeting alias contracts. They execute embedded scripts and the actual targeting alias/missing-target trigger bodies with external Mudlet I/O simulated, exercise refresh timing and cancellation, and compile all embedded Lua plus `config.lua`. Code uses Lua 5.1-compatible syntax; local verification uses the installed Lua 5.4 runtime.
 
-Live Imperian acceptance remains separate: verify room `Room.Info`/item-list/prompt ordering, the three target forms, and a complete fire/ice kill. Room lists have no room identifier, so synchronization assumes the server processes GMCP requests in stream order. Transitions discard old contents through the next prompt and require a fresh request before attacking. If state or an attack stays unresolved for 10 seconds, hunting turns off with a diagnostic instead of retrying on a timer.
+Live Imperian acceptance remains separate: verify `Room.Info`/item-list ordering with no following prompt, rapid movement, failed movement, the `ih` fallback, the three target forms, and a complete fire/ice kill. Repeated same-room info from `look` does not confirm a queued move; a genuine identity transition or `Room.WrongDir` is required. Room lists have no room or request identifier, so synchronization assumes the server processes GMCP requests in stream order; local tests cannot prove that live ordering. An unresolved attack also stops hunting after ten seconds.
