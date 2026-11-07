@@ -1086,6 +1086,127 @@ test('an explicit death signal remains latched across unrelated partial vital pa
   event('Char.Vitals',{dead='0',hp='3998'}); assert(not dem.balances.dead); assert(not dem.hunt.enabled)
 end)
 
+test('a divine grace refusal retires only the unexecuted action without granting readiness', function()
+  reset(); start(); local action=dem.balances.action
+  DEMONIC_TEST_GRACE()
+  eq(dem.balances.action,nil); eq(dem.balances.bal,false); assert(not dem.hunt.enabled)
+  eq(action.key,'1234'); eq(action.reference,'1234'); eq(commandCount('renounce grace'),0)
+  vitals(); tick(11); eq(#sent,1)
+end)
+
+test('an explicit refusal arriving after hunt stops still releases its unexecuted action', function()
+  reset(); start(); dem.hunt.stop(); dem.hunt.onAttackRejected('Divine grace prevents attacks.')
+  eq(dem.balances.action,nil); assert(not dem.hunt.enabled); eq(#sent,1)
+end)
+
+test('an accepted balance cycle is preserved when an attack refusal is ambiguous', function()
+  reset(); start(); vitals({bal='0'}); local action=dem.balances.action
+  dem.hunt.onAttackRejected('Divine grace prevents attacks.')
+  eq(dem.balances.action,action); assert(not dem.hunt.enabled)
+  vitals(); eq(dem.balances.action,nil); eq(#sent,1)
+end)
+
+test('manual restart after grace removal cannot inherit the rejected attack watchdog', function()
+  reset(); start(); dem.hunt.onAttackRejected('Divine grace prevents attacks.')
+  vitals({eq='0'}); tick(11); vitals(); dem.hunt.toggle(); roster(); tick(0)
+  assert(dem.hunt.enabled); eq(sent[2],'trace fire ice 1234')
+end)
+
+test('repeated balance refused west attempts do not survive one later successful move', function()
+  reset(); start(); vitals({bal='0'}); local action=dem.balances.action; dem.hunt.stop()
+  for _=1,3 do
+    send('w'); DEMONIC_TEST_UNAVAILABLE('bal'); eq(dem.room.diagnostics().pendingMoves,0)
+    eq(dem.balances.action,action); eq(dem.balances.bal,false)
+  end
+  send('w'); vitals(); DEMONIC_TEST_ENTERED('west'); room('Ant colony',102); roster(); tick(0)
+  eq(dem.room.num,'102'); eq(dem.room.diagnostics().pendingMoves,0); eq(#sent,1)
+  dem.hunt.toggle(); roster(); tick(0); assert(dem.hunt.enabled); eq(sent[2],'trace fire ice 1234')
+end)
+
+test('each rejected command in a pure movement batch retires exactly one attempt', function()
+  reset(); setup(); send('n&&e'); dem.onBalanceUnavailable('bal')
+  eq(dem.room.diagnostics().pendingMoves,1); eq(dem.room.num,nil)
+  dem.onBalanceUnavailable('bal'); eq(dem.room.diagnostics().pendingMoves,0); eq(dem.room.num,'101')
+  eq(dem.balances.bal,false); eq(#sent,0)
+end)
+
+test('a rejected movement waits for fresh roster and actual readiness before attacking', function()
+  reset(); setup(); dem.hunt.toggle(); roster({}); tick(0); send('n'); dem.onBalanceUnavailable('bal')
+  eq(dem.room.num,'101'); assert(not dem.room.ready); eq(dem.room.diagnostics().pendingMoves,0)
+  roster(); tick(0); eq(#sent,0); vitals(); tick(0); eq(sent[1],'trace fire ice 1234')
+end)
+
+test('a nonmovement command makes an untagged balance refusal ineligible to discard movement', function()
+  reset(); setup(); send('n'); send('trace fire ice 1234'); dem.onBalanceUnavailable('bal')
+  eq(dem.room.diagnostics().pendingMoves,1); eq(dem.room.num,nil); eq(dem.balances.bal,false)
+end)
+
+test('an unacknowledged attack prevents ambiguous failure text from discarding a queued move', function()
+  reset(); start(); local action=dem.balances.action; send('n'); dem.onBalanceUnavailable('bal')
+  eq(dem.room.diagnostics().pendingMoves,1); eq(dem.room.num,nil); eq(dem.balances.action,action)
+end)
+
+test('balance failure without a pending movement does not invalidate the current room', function()
+  reset(); setup(); local generation=dem.room.generation; dem.onBalanceUnavailable('bal')
+  eq(dem.room.num,'101'); assert(dem.room.ready); eq(dem.room.generation,generation)
+end)
+
+test('equilibrium refusal retires a known movement but does not grant equilibrium', function()
+  reset(); setup(); dem.hunt.toggle(); roster({}); tick(0); send('n'); DEMONIC_TEST_UNAVAILABLE('eq')
+  eq(dem.room.diagnostics().pendingMoves,0); eq(dem.balances.eq,false); roster(); tick(0); eq(#sent,0)
+  vitals(); tick(0); eq(sent[1],'trace fire ice 1234')
+end)
+
+test('mixed command packets cannot authorize dropping an ambiguous movement refusal', function()
+  reset(); setup(); send('n&&probe fido'); dem.onBalanceUnavailable('bal')
+  eq(dem.room.diagnostics().pendingMoves,1); eq(dem.room.num,nil)
+end)
+
+test('a later movement packet cannot erase an earlier manual attack response ambiguity', function()
+  reset(); setup(); send('trace fire ice 1234'); send('n'); dem.onBalanceUnavailable('bal')
+  eq(dem.room.diagnostics().pendingMoves,1); eq(dem.room.num,nil)
+  DEMONIC_TEST_ENTERED('north'); room('Ant colony',102); roster({}); tick(0)
+  eq(dem.room.num,'102'); send('e'); dem.onBalanceUnavailable('bal')
+  eq(dem.room.diagnostics().pendingMoves,0); eq(dem.room.num,'102')
+end)
+
+test('a later pure packet cannot erase ambiguity from a preceding mixed packet', function()
+  reset(); setup(); send('trace fire ice 1234&&n'); send('e'); dem.onBalanceUnavailable('bal')
+  eq(dem.room.diagnostics().pendingMoves,2); eq(dem.room.num,nil)
+end)
+
+test('a refused move preserves the identity gap after an earlier unhinted successful arrival', function()
+  reset(); setup(); dem.hunt.toggle(); roster({}); tick(0); DEMONIC_TEST_ENTERED('north')
+  send('e'); dem.onBalanceUnavailable('bal'); roster(); vitals(); tick(0)
+  eq(dem.room.num,nil); eq(dem.room.diagnostics().pendingMoves,0); eq(#sent,0)
+  room('Ant colony',102); roster({{id='9',name='a warrior ant',attrib='m'}}); tick(0)
+  eq(dem.room.num,'102'); eq(sent[1],'trace fire ice 9')
+end)
+
+test('repeated unavailable text never promotes an unexecuted attack into execution evidence', function()
+  reset(); start(); send('n'); dem.onBalanceUnavailable('bal'); dem.onBalanceUnavailable('bal')
+  eq(dem.room.diagnostics().pendingMoves,1); eq(dem.room.num,nil)
+end)
+
+test('an earlier movement acknowledgement cannot clear a later unrelated command ambiguity', function()
+  reset(); setup(); send('n'); send('probe fido'); send('e')
+  DEMONIC_TEST_ENTERED('north'); room('Ant colony',102); dem.onBalanceUnavailable('bal')
+  eq(dem.room.diagnostics().pendingMoves,1); eq(dem.room.num,nil)
+end)
+
+test('known room observation commands cannot own balance refusal responses', function()
+  for _,command in ipairs({'look','l','ih'}) do
+    reset(); setup(); send(command); send('n'); dem.onBalanceUnavailable('bal')
+    eq(dem.room.diagnostics().pendingMoves,0); eq(dem.room.num,'101')
+  end
+end)
+
+test('connection reset removes unresolved command attribution from the previous connection', function()
+  reset(); setup(); send('trace fire ice 1234'); raiseEvent('sysDisconnectionEvent')
+  vitals(); room(); roster({}); send('n'); dem.onBalanceUnavailable('bal')
+  eq(dem.room.diagnostics().pendingMoves,0); eq(dem.room.num,'101')
+end)
+
 for _, t in ipairs(tests) do
   local ok, err = pcall(t[2])
   if ok then passed=passed+1; print('PASS '..t[1])

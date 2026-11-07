@@ -13,11 +13,13 @@ Flexible walk prefixes confirm supported directions. Native room headings paired
 can recover a completed movement prefix; later movement still blocks. Cached exits never permanently veto proof.
 Death stops hunting and clears movement, pending targets, attacks, and readiness once; revival never starts hunting.
 GMCP health and mana authority begins on any explicit field and persists across prompts until connection reset.
+Known refusals retire rejected attempts without granting readiness; accepted attacks wait for real balance recovery.
+Divine grace refusal stops Hunt; renounce grace manually before enabling Hunt again.
 
 Uses learned Duality for a single `trace fire ice <target>` command. The shared command separator is `&&`.
 Default safety stops: 30% health and 10% mana; `hunt limits <hp%> <mana%>` changes them.
 Healing is left to Imperian autocuring. GMCP must be enabled. No movement or auto-updating.
 
 Source and usage: https://github.com/Aeden15/Imperian]]
-version = [[0.1.5]]
+version = [[0.1.6]]
 created = "2026-11-07T01:33:06-06:00"

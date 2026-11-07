@@ -25,7 +25,7 @@ $preserved = $package.Clone()
 $owned = @{
     Script = @($sourceFiles.Keys)
     Alias = @('Hunt mode','Hunt add','Hunt remove','Hunt list','Hunt status','Hunt limits','Targeting')
-    Trigger = @('Balance loss duration','Equilibrium loss duration','Balance regained','Equilibrium regained','Balance unavailable','Equilibrium unavailable','Prompt readiness','Denizen slain','Target absent','Room entered','Room heading')
+    Trigger = @('Balance loss duration','Equilibrium loss duration','Balance regained','Equilibrium regained','Balance unavailable','Equilibrium unavailable','Prompt readiness','Denizen slain','Target absent','Grace blocks attack','Room entered','Room heading')
 }
 foreach ($tag in $owned.Keys) {
     foreach ($node in @($preserved.SelectNodes(('//' + $tag)))) {
@@ -49,7 +49,7 @@ if ($lastScript.LocalName -cne 'Script' -or $lastScript.SelectSingleNode('name')
 }
 $config = Get-Content -LiteralPath (Join-Path $root 'Demonic/config.lua') -Raw
 if ($config -cnotmatch '(?m)^created = "2026-11-07T01:33:06-06:00"\r?$') { throw 'Export creation timestamp was not preserved.' }
-if ($config -cnotmatch '(?m)^version = \[\[0\.1\.5\]\]\r?$' -or $config -cnotmatch '(?s)description = \[\[Shared targeting.+?\]\]') {
+if ($config -cnotmatch '(?m)^mpackage = \[\[Demonic\]\]\r?$' -or $config -cnotmatch '(?m)^version = \[\[0\.1\.6\]\]\r?$' -or $config -cnotmatch '(?s)description = \[\[Shared targeting.+?\]\]') {
     throw 'Package version or description is missing.'
 }
 foreach ($name in $sourceFiles.Keys) {
@@ -179,6 +179,47 @@ foreach ($line in $missingLines) {
         if ($invalid -cmatch $missingPatterns[0].InnerText) { throw ('Target absent trigger incorrectly accepts: ' + $invalid) }
     }
 }
+$unavailableTriggers = @{}
+foreach ($kind in @('bal','eq')) {
+    $resource = if ($kind -ceq 'bal') { 'balance' } else { 'equilibrium' }
+    $name = if ($kind -ceq 'bal') { 'Balance unavailable' } else { 'Equilibrium unavailable' }
+    $nodes = @($package.SelectNodes(('//TriggerPackage/TriggerGroup[name="System"]/TriggerGroup[name="Balances"]/Trigger[name="{0}"]' -f $name)))
+    if ($nodes.Count -ne 1) { throw ($name + ' trigger is missing or duplicated.') }
+    $trigger = $nodes[0]
+    $patterns = @($trigger.SelectNodes('regexCodeList/string'))
+    $types = @($trigger.SelectNodes('regexCodePropertyList/integer'))
+    $pattern = '^You must regain (?:your )?' + $resource + ' first\.$'
+    $script = 'dem.onBalanceUnavailable("' + $kind + '")'
+    if ($patterns.Count -ne 1 -or $patterns[0].InnerText -cne $pattern -or $types.Count -ne 1 -or $types[0].InnerText -cne '1' -or $trigger.script -cne $script) {
+        throw ($name + ' must use the exact approved regex, type, and script.')
+    }
+    if ($package.SelectNodes(('//Trigger[@isActive="yes" and name="{0}"]' -f $name)).Count -ne 1 -or $trigger.GetAttribute('isActive') -cne 'yes') {
+        throw ('Expected one active ' + $name + ' trigger in System/Balances.')
+    }
+    foreach ($text in @(('You must regain ' + $resource + ' first.'), ('You must regain your ' + $resource + ' first.'))) {
+        if ($text -cnotmatch $pattern) { throw ($name + ' trigger rejects: ' + $text) }
+        foreach ($invalid in @(('prefix ' + $text), ($text + ' extra'), $text.Replace('.','!'))) {
+            if ($invalid -cmatch $pattern) { throw ($name + ' trigger incorrectly accepts: ' + $invalid) }
+        }
+    }
+    $unavailableTriggers[$kind] = $trigger
+}
+$graceNodes = @($package.SelectNodes('//TriggerPackage/TriggerGroup[name="System"]/TriggerGroup[name="Autobasher"]/Trigger[name="Grace blocks attack"]'))
+if ($graceNodes.Count -ne 1) { throw 'Grace blocks attack trigger is missing or duplicated.' }
+$graceTrigger = $graceNodes[0]
+$gracePatterns = @($graceTrigger.SelectNodes('regexCodeList/string'))
+$graceTypes = @($graceTrigger.SelectNodes('regexCodePropertyList/integer'))
+if ($gracePatterns.Count -ne 1 -or $gracePatterns[0].InnerText -cne '^You currently walk in divine grace\b' -or $graceTypes.Count -ne 1 -or $graceTypes[0].InnerText -cne '1' -or $graceTrigger.script -cne 'dem.hunt.onAttackRejected("Divine grace prevents attacks; renounce grace manually before enabling Hunt.")') {
+    throw 'Grace blocks attack must use the exact approved regex, type, and script.'
+}
+if ($package.SelectNodes('//Trigger[@isActive="yes" and name="Grace blocks attack"]').Count -ne 1 -or $graceTrigger.GetAttribute('isActive') -cne 'yes') {
+    throw 'Expected one active Grace blocks attack trigger in System/Autobasher.'
+}
+$graceLine = 'You currently walk in divine grace and may neither be harmed nor harm another.'
+if ($graceLine -cnotmatch $gracePatterns[0].InnerText) { throw 'Grace blocks attack rejects the actual complete game line.' }
+foreach ($text in @(('prefix ' + $graceLine), ('[Notice] ' + $graceLine), ' You currently walk in divine grace.', 'you currently walk in divine grace.', 'You currently walk in divine graceful harmony.', 'You walk north.', 'You must regain balance first.')) {
+    if ($text -cmatch $gracePatterns[0].InnerText) { throw ('Grace blocks attack incorrectly accepts: ' + $text) }
+}
 $temp = Join-Path ([IO.Path]::GetTempPath()) ('demonic-tests-' + [guid]::NewGuid().ToString('N') + '.lua')
 try {
     $chunks = [Collections.Generic.List[string]]::new()
@@ -210,6 +251,20 @@ try {
     $chunks.Add('assert(missingTargetLines[text], "Unvalidated Target absent fixture")')
     $chunks.Add('line = text; matches = {text}')
     $chunks.Add(('return assert((loadstring or load)([====[{0}]====], "Target absent trigger"))()' -f $missingTrigger.script))
+    $chunks.Add('end')
+    $chunks.Add('function DEMONIC_TEST_UNAVAILABLE(kind)')
+    $chunks.Add('assert(kind == "bal" or kind == "eq", "Unknown unavailable resource")')
+    foreach ($kind in @('bal','eq')) {
+        $resource = if ($kind -ceq 'bal') { 'balance' } else { 'equilibrium' }
+        $chunks.Add(('if kind == "{0}" then' -f $kind))
+        $chunks.Add(('line = "You must regain {0} first."; matches = {{line}}' -f $resource))
+        $chunks.Add(('return assert((loadstring or load)([====[{0}]====], "{1} unavailable trigger"))()' -f $unavailableTriggers[$kind].script, $resource))
+        $chunks.Add('end')
+    }
+    $chunks.Add('end')
+    $chunks.Add('function DEMONIC_TEST_GRACE()')
+    $chunks.Add(('line = [====[{0}]====]; matches = {{line}}' -f $graceLine))
+    $chunks.Add(('return assert((loadstring or load)([====[{0}]====], "Grace blocks attack trigger"))()' -f $graceTrigger.script))
     $chunks.Add('end')
     $testFile = (Join-Path $PSScriptRoot 'run.lua').Replace('\','/')
     $chunks.Add(('dofile("{0}")' -f $testFile))

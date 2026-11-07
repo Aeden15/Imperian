@@ -18,10 +18,12 @@ local function release()
   dem.cancel('attack-watchdog')
 end
 
-local function readiness(kind, ready, explicitRecovery)
+local function readiness(kind, ready, explicitRecovery, acceptedLoss)
   balances[kind] = ready
   if kind == 'bal' and balances.action then
-    if ready == false then balances.action.lost = true
+    if ready == false then
+      balances.action.lost = true
+      if acceptedLoss then balances.action.executionConfirmed = true end
     elseif ready == true and (explicitRecovery or balances.action.lost) then release() end
   end
 end
@@ -69,7 +71,7 @@ function balances.onVitals(payload)
   for _, kind in ipairs({'bal', 'eq'}) do
     if payload[kind] ~= nil then
       local value = boolean(payload[kind])
-      readiness(kind, value)
+      readiness(kind, value, nil, value == false)
       if value ~= nil then dem.runtime.gmcpFields[kind] = true end
     end
   end
@@ -79,7 +81,7 @@ end
 
 function balances.taken(kind, seconds)
   if kind ~= 'bal' and kind ~= 'eq' then return false end
-  readiness(kind, false)
+  readiness(kind, false, nil, number(seconds) ~= nil)
   -- Duration is diagnostic only. A clock cannot confirm recovery.
   balances[kind .. 'Duration'] = number(seconds)
   dem.schedule()
@@ -99,6 +101,15 @@ function balances.beginAction(action)
   balances.action = action
   -- Local pessimism gates sends; it is not evidence of a server balance cycle.
   balances.bal = false
+  return true
+end
+
+function balances.rejectAction(action)
+  if not action or balances.action ~= action or action.lost then return false end
+  -- A confirmed refusal has no balance cycle to wait for. Leave readiness
+  -- exactly as observed; in particular do not undo beginAction's pessimism.
+  action.rejected = true
+  release()
   return true
 end
 

@@ -51,6 +51,14 @@ function hunt.stop(reason)
   if wasEnabled then message('Hunt mode off' .. (reason and ': ' .. reason or '.')) end
 end
 
+function hunt.onAttackRejected(reason)
+  local action = dem.balances.action
+  if action and action == hunt.lastAction and dem.balances.rejectAction(action) then
+    hunt.lastAction = nil
+  end
+  hunt.stop(reason or 'The submitted attack was refused.')
+end
+
 function hunt.toggle()
   if hunt.enabled then hunt.stop(); return false end
   if dem.balances.dead then
@@ -204,7 +212,7 @@ function hunt.step()
   local command, err = dem.ritualism.buildTrace({'fire', 'ice'}, candidate.key)
   if not command then hunt.stop(err or 'Cannot build the hunting attack.'); return end
   local action = {reference = dem.target, key = candidate.key, room = room.num, generation = room.generation,
-    item = candidate.item, retired = false, started = dem.now()}
+    item = candidate.item, retired = false, started = dem.now(), command = command}
   if not b.beginAction(action) then return end
   hunt.lastAction = action
   hunt.reason = 'Waiting for the confirmed attack balance cycle.'

@@ -24,6 +24,17 @@ function dem.onDeath()
   dem.room.reset()
 end
 
+function dem.onBalanceUnavailable(kind)
+  if kind ~= 'bal' and kind ~= 'eq' then return false end
+  local action = dem.balances.action
+  -- Unavailable text alone does not prove that an attack executed, even when
+  -- repeated. Only a server balance loss can release its response ambiguity.
+  local movementResponse = not action or action.executionConfirmed
+  dem.balances.taken(kind)
+  if movementResponse then return dem.room.onMovementBlocked() end
+  return false
+end
+
 local function gmcpHandler(event, fn)
   dem.bind('gmcp.' .. event, function()
     local value = gmcp

@@ -5,6 +5,8 @@ dem.room = {items = {}, order = {}, retired = {}, ready = false,
   phase = 'unconfirmed', generation = 0, contextId = 0}
 local room = dem.room
 local pendingMoves, lastIdentity = 0, nil
+local movementOnlyPacket = false
+local submissionSequence, ambiguousSubmission = 0, nil
 local nextContext, exitsByRoom, movementOrigin = 0, {}, nil
 local lastReceivedRoom, rejectedReason
 -- Text and Room.Info acknowledge the same arrival in either order. Only
@@ -113,6 +115,8 @@ end
 function room.reset()
   invalidate()
   pendingMoves, lastIdentity = 0, nil
+  movementOnlyPacket = false
+  submissionSequence, ambiguousSubmission = 0, nil
   arrivals, currentArrival, awaitingArrival = {}, nil, false
   nextContext, room.contextId, exitsByRoom, movementOrigin = 0, 0, {}, nil
   lastReceivedRoom, rejectedReason = nil, nil
@@ -210,6 +214,15 @@ local function expectedPath()
   end
 end
 
+local function acknowledgeSubmission(arrival)
+  -- In the ordered command stream, a proven later movement also accounts
+  -- for earlier command responses. An older walk cannot clear newer ambiguity.
+  if ambiguousSubmission and arrival.submissionSequence
+      and arrival.submissionSequence >= ambiguousSubmission then
+    ambiguousSubmission = nil
+  end
+end
+
 function room.diagnostics()
   expectedPath()
   local latest = arrivals[#arrivals]
@@ -227,23 +240,40 @@ function room.diagnostics()
 end
 
 function room.onMovement(command)
+  movementOnlyPacket = false
   if type(command) ~= 'string' then return end
-  local moves, first = {}, 1
+  local moves, first, movementOnly = {}, 1, true
   local separator = dem.separator
   while true do
     local boundary = command:find(separator, first, true)
     local part = command:sub(first, boundary and boundary - 1 or #command)
+    part = dem.trim(part):lower()
+    submissionSequence = submissionSequence + 1
     local heading = direction(part)
     if heading then
       moves[#moves + 1] = {direction = heading, textEligible = true,
-        hinted = true, contextId = newContext()}
+        hinted = true, contextId = newContext(), submissionSequence = submissionSequence}
+    else
+      movementOnly = false
+      local action = dem.balances and dem.balances.action
+      local trackedAttack = action and action.command == part
+      -- These observation commands cannot produce a balance refusal. Other
+      -- commands remain ambiguous across later submissions until proven past.
+      if part ~= 'look' and part ~= 'l' and part ~= 'ih' and not trackedAttack then
+        ambiguousSubmission = submissionSequence
+      end
     end
     if not boundary then break end
     first = boundary + #separator
   end
+  movementOnlyPacket = movementOnly and #moves > 0
   if #moves == 0 then return end
   headingFrame, freshInfo, recoveryReason = nil, nil, nil
-  if pendingMoves == 0 then
+  local unresolved
+  for _, arrival in ipairs(arrivals) do
+    if not arrival.info then unresolved = true; break end
+  end
+  if pendingMoves == 0 and not unresolved then
     if room.num then lastIdentity = {num = room.num, area = room.area} end
     movementOrigin = lastIdentity and lastIdentity.num
     arrivals = {}
@@ -339,6 +369,7 @@ local function recoverHeading()
       candidate.info = true
       if candidate.hinted then pendingMoves = pendingMoves - 1 end
     end
+    acknowledgeSubmission(candidate)
   end
   local later
   for i = frameIndex + 1, #arrivals do
@@ -383,6 +414,7 @@ function room.onEntered(value)
     arrivals[#arrivals + 1] = arrival
   end
   arrival.entered, arrival.direction = true, heading
+  acknowledgeSubmission(arrival)
   -- Every walk replaces the preceding heading. Tracked walks may still pair
   -- with Info received since this outgoing batch began, including a packet
   -- for the next queued walk delivered before its text. onMovement clears
@@ -439,6 +471,19 @@ function room.onWrongDir(payload)
     if hunting() then room.request('Movement awaiting Room.Info') end
     changed()
   end
+end
+
+function room.onMovementBlocked()
+  -- The latest pure movement packet does not erase an earlier command whose
+  -- response is still ambiguous. Never use that refusal to restore old targets.
+  if not movementOnlyPacket or ambiguousSubmission or pendingMoves == 0 then return false end
+  for _, arrival in ipairs(arrivals) do
+    if arrival.hinted and not arrival.info and not arrival.entered then
+      room.onWrongDir(arrival.direction)
+      return true
+    end
+  end
+  return false
 end
 
 function room.onInfo(payload)
@@ -518,6 +563,7 @@ function room.onInfo(payload)
         candidate.info = true
         if candidate.hinted then pendingMoves = pendingMoves - 1 end
       end
+      acknowledgeSubmission(candidate)
     end
     arrival.identity = identity
     lastIdentity = identity
