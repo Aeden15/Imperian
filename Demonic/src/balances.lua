@@ -18,12 +18,11 @@ local function release()
   dem.cancel('attack-watchdog')
 end
 
-local function readiness(kind, ready, explicitRecovery, acceptedLoss)
+local function readiness(kind, ready, explicitRecovery)
   balances[kind] = ready
   if kind == 'bal' and balances.action then
     if ready == false then
       balances.action.lost = true
-      if acceptedLoss then balances.action.executionConfirmed = true end
     elseif ready == true and (explicitRecovery or balances.action.lost) then release() end
   end
 end
@@ -71,7 +70,7 @@ function balances.onVitals(payload)
   for _, kind in ipairs({'bal', 'eq'}) do
     if payload[kind] ~= nil then
       local value = boolean(payload[kind])
-      readiness(kind, value, nil, value == false)
+      readiness(kind, value)
       if value ~= nil then dem.runtime.gmcpFields[kind] = true end
     end
   end
@@ -81,7 +80,7 @@ end
 
 function balances.taken(kind, seconds)
   if kind ~= 'bal' and kind ~= 'eq' then return false end
-  readiness(kind, false, nil, number(seconds) ~= nil)
+  readiness(kind, false)
   -- Duration is diagnostic only. A clock cannot confirm recovery.
   balances[kind .. 'Duration'] = number(seconds)
   dem.schedule()

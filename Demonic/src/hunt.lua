@@ -1,6 +1,29 @@
 dem.hunt = {enabled = false, reason = 'Disabled.'}
 local hunt = dem.hunt
 local selected, manualReference, stateWaiting, waitingGeneration, watchedAction
+local submittedByName, submittedById, submittedAny = {}, {}, false
+
+function hunt.resetTerminalHistory()
+  submittedByName, submittedById, submittedAny = {}, {}, false
+end
+
+local function rememberName(action, name)
+  if type(name) ~= 'string' or dem.norm(name) == '' then return false end
+  name = dem.norm(name)
+  local previous = submittedByName[name]
+  local older = previous and previous.action
+  local ambiguous = previous and (previous.ambiguous or (older ~= action
+    and (older.retired or older.key ~= action.key or older.generation ~= action.generation))) or false
+  submittedByName[name] = {action = action, ambiguous = ambiguous}
+  action.names = action.names or {}
+  action.names[name] = true
+  return ambiguous
+end
+
+function hunt.onObserved(key, item)
+  local action = submittedById[dem.room.generation .. ':' .. key]
+  if action and type(item) == 'table' then rememberName(action, item.name) end
+end
 
 local function message(text) dem.message(text) end
 local function schedule() if dem.schedule then dem.schedule() end end
@@ -212,8 +235,15 @@ function hunt.step()
   local command, err = dem.ritualism.buildTrace({'fire', 'ice'}, candidate.key)
   if not command then hunt.stop(err or 'Cannot build the hunting attack.'); return end
   local action = {reference = dem.target, key = candidate.key, room = room.num, generation = room.generation,
-    item = candidate.item, retired = false, started = dem.now(), command = command}
+    item = candidate.item, retired = false, started = dem.now()}
   if not b.beginAction(action) then return end
+  local name = dem.norm(candidate.item.name)
+  -- Text has no ID. Once another physical target could own the same name,
+  -- defer that ambiguous text to GMCP rather than retiring its successor.
+  action.ambiguousKill = rememberName(action, name)
+  action.ambiguousMissing = submittedAny
+  submittedAny = true
+  submittedById[room.generation .. ':' .. action.key] = action
   hunt.lastAction = action
   hunt.reason = 'Waiting for the confirmed attack balance cycle.'
   watchAction(action)
@@ -226,11 +256,12 @@ end
 
 local function reconcile(action)
   if not hunt.enabled or not belongsToRoom(action) or action.refreshRequested then return end
-  action.refreshRequested = true
+  -- A proved retirement owns one reconciliation. Ambiguous text may describe
+  -- an older target; a later real terminal event still needs a fresh query.
+  if action.retired then action.refreshRequested = true end
   -- An authoritative full snapshot already reconciles its own missing items.
   if dem.room.processingList then return end
-  dem.room.request('Submitted target left or died')
-  waitForState('Waiting for room contents after a target ended.')
+  dem.room.request('Submitted target left or died', false)
   schedule()
 end
 
@@ -240,6 +271,10 @@ local function retire(action)
     action.retired = true
     if belongsToRoom(action) then
       dem.room.retired[action.key] = true
+      dem.room.items[action.key] = nil
+      for i = #dem.room.order, 1, -1 do
+        if dem.room.order[i] == action.key then table.remove(dem.room.order, i) end
+      end
       -- Lifecycle messages belong to the immutable submitted action, never to a
       -- subsequently selected manual target.
       if dem.target == action.reference and selected and selected.key == action.key
@@ -255,9 +290,18 @@ end
 
 function hunt.onKill(name)
   local action = hunt.lastAction
-  if action and type(name) == 'string' and action.item and dem.norm(action.item.name) == dem.norm(name) then retire(action) end
+  local normalized = type(name) == 'string' and dem.norm(name) or nil
+  if action and normalized and action.names and action.names[normalized] then
+    local provenance = submittedByName[normalized]
+    if provenance and provenance.ambiguous and not action.retired then reconcile(action)
+    else retire(action) end
+  end
 end
-function hunt.onMissing() retire(hunt.lastAction) end
+function hunt.onMissing()
+  local action = hunt.lastAction
+  if action and action.ambiguousMissing and not action.retired then reconcile(action)
+  else retire(action) end
+end
 
 function hunt.onRemoved(key)
   local action = hunt.lastAction
@@ -331,6 +375,10 @@ function hunt.status(detailed)
   local refresh = dem.room.refresh
   local diagnostics = dem.room.diagnostics and dem.room.diagnostics() or {}
   local age = refresh and string.format('%.1fs', math.max(0, dem.now() - refresh.started)) or 'none'
+  local count = 0
+  for key, item in pairs(dem.room.items) do
+    if not dem.room.retired[key] and dem.room.living(item) then count = count + 1 end
+  end
   message('Hunt mode ' .. (hunt.enabled and 'on' or 'off') .. '; area: ' .. (dem.room.area or 'unknown')
     .. '; target: ' .. (dem.target or 'none') .. '; limits: ' .. dem.settings.hpLimit .. '% health, '
     .. dem.settings.manaLimit .. '% mana; HP: ' .. value(v.hp) .. '/' .. value(v.maxhp)
@@ -340,14 +388,10 @@ function hunt.status(detailed)
     .. '; ih: ' .. (refresh and refresh.ihSent and 'sent' or 'not sent')
     .. '; refresh reason: ' .. (refresh and refresh.reason or 'none')
     .. '; room: ' .. value(dem.room.num) .. '; context: ' .. value(diagnostics.contextId)
-    .. '; pending movements: ' .. value(diagnostics.pendingMoves)
-    .. '; expected room: ' .. value(diagnostics.expectedDestination)
+    .. '; roster: ' .. tostring(count)
+    .. '; refresh mode: ' .. (refresh and (refresh.blocking and 'blocking' or 'background') or 'none')
     .. '; last GMCP room: ' .. value(diagnostics.lastReceivedRoom)
-    .. '; identity block: ' .. (diagnostics.rejectedReason or 'none')
-    .. '; blocking context: ' .. value(diagnostics.blockingContext)
-    .. '; blocking direction: ' .. value(diagnostics.blockingDirection)
-    .. '; blocking expected room: ' .. value(diagnostics.blockingExpected)
-    .. '; recovery: ' .. (diagnostics.recoveryReason or 'none')
+    .. '; refresh error: ' .. (diagnostics.refreshError or 'none')
     .. '; target type: ' .. (dem.targeting.kind or 'none')
     .. (hunt.enabled and '; state: ' or '; last stop: ') .. hunt.reason)
   return hunt.enabled

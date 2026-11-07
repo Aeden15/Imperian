@@ -2,7 +2,6 @@
 function dem.onPrompt(text)
   dem.cancel('hunt-step')
   if text then dem.balances.parsePrompt(text) end
-  dem.room.onPrompt()
   dem.targeting.resolvePending()
   dem.hunt.step()
   dem.balances.endPrompt()
@@ -11,6 +10,7 @@ end
 function dem.resetConnection()
   dem.hunt.stop('Connection changed; type hunt to enable again.')
   dem.hunt.lastAction = nil
+  dem.hunt.resetTerminalHistory()
   dem.targeting.clear('system')
   dem.balances.reset()
   dem.room.reset()
@@ -19,20 +19,14 @@ end
 function dem.onDeath()
   dem.hunt.stop('You are dead.')
   dem.hunt.lastAction = nil
+  dem.hunt.resetTerminalHistory()
   dem.targeting.clear('system')
   dem.balances.clearForDeath()
   dem.room.reset()
 end
 
 function dem.onBalanceUnavailable(kind)
-  if kind ~= 'bal' and kind ~= 'eq' then return false end
-  local action = dem.balances.action
-  -- Unavailable text alone does not prove that an attack executed, even when
-  -- repeated. Only a server balance loss can release its response ambiguity.
-  local movementResponse = not action or action.executionConfirmed
-  dem.balances.taken(kind)
-  if movementResponse then return dem.room.onMovementBlocked() end
-  return false
+  return dem.balances.taken(kind)
 end
 
 local function gmcpHandler(event, fn)
@@ -47,12 +41,10 @@ end
 
 gmcpHandler('Char.Vitals', dem.balances.onVitals)
 gmcpHandler('Room.Info', dem.room.onInfo)
-gmcpHandler('Room.WrongDir', dem.room.onWrongDir)
 gmcpHandler('Char.Items.List', dem.room.onList)
 gmcpHandler('Char.Items.Add', dem.room.onAdd)
 gmcpHandler('Char.Items.Remove', dem.room.onRemove)
 gmcpHandler('Char.Items.Update', dem.room.onUpdate)
-dem.bind('sysDataSendRequest', function(_, command) dem.room.onMovement(command) end)
 dem.bind('sysDisconnectionEvent', dem.resetConnection)
 dem.bind('sysConnectionEvent', dem.resetConnection)
 dem.bind('sysProtocolEnabled', function(_, protocol)
@@ -72,8 +64,7 @@ if type(gmcp) == 'table' then
   end
   if gmcp.Room and type(gmcp.Room.Info) == 'table' then
     dem.room.onInfo(gmcp.Room.Info)
-    -- This identity was cached before installation, rather than received during
-    -- a movement block. Request a fresh roster without waiting for game text.
+    -- The identity is cached; its item list must be requested afresh.
     dem.room.request('Installation into a connected profile')
   end
 end

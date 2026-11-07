@@ -25,7 +25,7 @@ $preserved = $package.Clone()
 $owned = @{
     Script = @($sourceFiles.Keys)
     Alias = @('Hunt mode','Hunt add','Hunt remove','Hunt list','Hunt status','Hunt limits','Targeting')
-    Trigger = @('Balance loss duration','Equilibrium loss duration','Balance regained','Equilibrium regained','Balance unavailable','Equilibrium unavailable','Prompt readiness','Denizen slain','Target absent','Grace blocks attack','Room entered','Room heading')
+    Trigger = @('Balance loss duration','Equilibrium loss duration','Balance regained','Equilibrium regained','Balance unavailable','Equilibrium unavailable','Prompt readiness','Denizen slain','Target absent','Grace blocks attack')
 }
 foreach ($tag in $owned.Keys) {
     foreach ($node in @($preserved.SelectNodes(('//' + $tag)))) {
@@ -49,7 +49,7 @@ if ($lastScript.LocalName -cne 'Script' -or $lastScript.SelectSingleNode('name')
 }
 $config = Get-Content -LiteralPath (Join-Path $root 'Demonic/config.lua') -Raw
 if ($config -cnotmatch '(?m)^created = "2026-11-07T01:33:06-06:00"\r?$') { throw 'Export creation timestamp was not preserved.' }
-if ($config -cnotmatch '(?m)^mpackage = \[\[Demonic\]\]\r?$' -or $config -cnotmatch '(?m)^version = \[\[0\.1\.6\]\]\r?$' -or $config -cnotmatch '(?s)description = \[\[Shared targeting.+?\]\]') {
+if ($config -cnotmatch '(?m)^mpackage = \[\[Demonic\]\]\r?$' -or $config -cnotmatch '(?m)^version = \[\[0\.1\.7\]\]\r?$' -or $config -cnotmatch '(?s)description = \[\[Shared targeting.+?\]\]') {
     throw 'Package version or description is missing.'
 }
 foreach ($name in $sourceFiles.Keys) {
@@ -93,74 +93,33 @@ foreach ($command in @('hunt status','hunt status debug')) {
 foreach ($command in @('hunt status extra','hunt status debug extra','hunt status  debug','hunt statusdebug',' hunt status','hunt status ')) {
     if ($command -cmatch $statusAlias.regex) { throw ('Hunt status alias incorrectly accepts: ' + $command) }
 }
-$enteredNodes = @($package.SelectNodes('//TriggerPackage/TriggerGroup[name="System"]/TriggerGroup[name="Autobasher"]/Trigger[name="Room entered"]'))
-if ($enteredNodes.Count -ne 1) { throw 'Room entered trigger is missing or duplicated.' }
-$enteredTrigger = $enteredNodes[0]
-$enteredPatterns = @($enteredTrigger.SelectNodes('regexCodeList/string'))
-$enteredTypes = @($enteredTrigger.SelectNodes('regexCodePropertyList/integer'))
-if ($enteredPatterns.Count -ne 1 -or $enteredPatterns[0].InnerText -cne '^You\s+walk\s+([A-Za-z]+)(?=\s|[.,!?;:]|$)' -or $enteredTrigger.script -cne 'dem.room.onEntered(matches[2])' -or $enteredTypes.Count -ne 1 -or $enteredTypes[0].InnerText -cne '1') {
-    throw 'Room entered trigger must use the exact approved regex, type, and script.'
+# Reported GMCP identity is the only room boundary; native walk/heading
+# text must not install active or inactive generated synchronization triggers.
+if ($package.SelectNodes('//Trigger[name="Room entered" or name="Room heading"]').Count -ne 0) {
+    throw 'Generated movement/heading triggers must be absent.'
 }
-if ($package.SelectNodes('//Trigger[@isActive="yes" and name="Room entered"]').Count -ne 1 -or $enteredTrigger.GetAttribute('isActive') -cne 'yes') {
-    throw 'Expected one active Room entered trigger in System/Autobasher.'
-}
-foreach ($direction in @('north','northeast','east','southeast','south','southwest','west','northwest','up','down','in','out')) {
-    foreach ($walkLine in @(
-        ('You walk ' + $direction + '.')
-        ('You  walk  ' + $direction)
-        ('You walk ' + $direction + '!')
-        ('You walk ' + $direction + ', following the path.')
-        ('You walk ' + $direction + '; the trail continues.')
-        ('You walk ' + $direction + ': onward.')
-        ('You walk ' + $direction + '?')
-        ('You walk ' + $direction + ' to "Ant colony".')
-        ("You walk " + $direction + " to 'The scorched beginnings of an ascent'.")
-        ('You walk ' + $direction + ' (following your automatic path).')
-    )) {
-        if ($walkLine -cnotmatch $enteredPatterns[0].InnerText -or $Matches[1] -cne $direction) {
-            throw ('Room entered trigger rejects or miscaptures: ' + $walkLine)
-        }
+foreach ($script in $scripts) {
+    if ($script.InnerText -cmatch 'sysDataSendRequest') {
+        throw 'Outgoing movement interception must not be registered.'
     }
 }
-foreach ($walkLine in @('prefix You walk northeast.','you walk northeast.','You walked northeast.','You walk northeast42.','You walk north-east.','You walk 42.','You walk .','You walk')) {
-    if ($walkLine -cmatch $enteredPatterns[0].InnerText) { throw ('Room entered trigger incorrectly accepts: ' + $walkLine) }
-}
-# The approved regex captures words; the Lua handler validates supported directions.
-if ('You walk quietly.' -cnotmatch $enteredPatterns[0].InnerText -or $Matches[1] -cne 'quietly') {
-    throw 'Room entered must leave unsupported-word validation to the Lua handler.'
-}
-$headingNodes = @($package.SelectNodes('//TriggerPackage/TriggerGroup[name="System"]/TriggerGroup[name="Autobasher"]/Trigger[name="Room heading"]'))
-if ($headingNodes.Count -ne 1) { throw 'Room heading trigger is missing or duplicated.' }
-$headingTrigger = $headingNodes[0]
-$headingPatterns = @($headingTrigger.SelectNodes('regexCodeList/string'))
-$headingTypes = @($headingTrigger.SelectNodes('regexCodePropertyList/integer'))
-if ($headingPatterns.Count -ne 1 -or $headingPatterns[0].InnerText -cne '^(.+?)\.\s+(\d+)(?:\s+\([^)]*\))?\.?$' -or $headingTrigger.script -cne 'dem.room.onHeading(matches[2], matches[3])' -or $headingTypes.Count -ne 1 -or $headingTypes[0].InnerText -cne '1') {
-    throw 'Room heading trigger must use the exact approved regex, type, and script.'
-}
-if ($package.SelectNodes('//Trigger[@isActive="yes" and name="Room heading"]').Count -ne 1 -or $headingTrigger.GetAttribute('isActive') -cne 'yes') {
-    throw 'Expected one active Room heading trigger in System/Autobasher.'
-}
-$headingFixtures = @(
-    ,@('Ant colony. 14625 (Inside).','Ant colony','14625')
-    ,@('Ant colony. 14625 (Inside)','Ant colony','14625')
-    ,@('Ant colony. 14625.','Ant colony','14625')
-    ,@('Ant colony. 14625','Ant colony','14625')
-    ,@("A warrior's retreat. 42 (Outside).","A warrior's retreat",'42')
-    ,@('A room, with punctuation!. 17.','A room, with punctuation!','17')
-)
-foreach ($fixture in $headingFixtures) {
-    if ($fixture[0] -cnotmatch $headingPatterns[0].InnerText -or $Matches[1] -cne $fixture[1] -or $Matches[2] -cne $fixture[2]) {
-        throw ('Room heading trigger rejects or miscaptures: ' + $fixture[0])
-    }
-}
-foreach ($headingLine in @('. 42.','Ant colony 42.','Ant colony. -42.','Ant colony. abc.','Ant colony. 42 (Inside','Ant colony. 42 (Inside). extra','Ant colony. 42 extra','Ant colony. 42..')) {
-    if ($headingLine -cmatch $headingPatterns[0].InnerText) { throw ('Room heading trigger incorrectly accepts: ' + $headingLine) }
-}
-# Zero is syntactically numeric; onHeading must require a positive room ID and
-# validate the captured name/ID against fresh GMCP in the current walk frame.
-$slain = $package.SelectSingleNode('//TriggerPackage/TriggerGroup[name="System"]/TriggerGroup[name="Autobasher"]/Trigger[name="Denizen slain"]')
-if (!$slain -or $slain.script -cne 'dem.hunt.onKill(matches[2])' -or $slain.SelectSingleNode('regexCodeList/string').InnerText -cne '^The final blow is too much, you have slain (.+)\.$') {
+$slainNodes = @($package.SelectNodes('//TriggerPackage/TriggerGroup[name="System"]/TriggerGroup[name="Autobasher"]/Trigger[name="Denizen slain"]'))
+if ($slainNodes.Count -ne 1) { throw 'Denizen slain trigger is missing or duplicated.' }
+$slain = $slainNodes[0]
+$slainPatterns = @($slain.SelectNodes('regexCodeList/string'))
+$slainTypes = @($slain.SelectNodes('regexCodePropertyList/integer'))
+if ($slain.script -cne 'dem.hunt.onKill(matches[2])' -or $slainPatterns.Count -ne 1 -or $slainPatterns[0].InnerText -cne '^The final blow is too much, you have slain (.+)\.$' -or $slainTypes.Count -ne 1 -or $slainTypes[0].InnerText -cne '1') {
     throw 'Denizen slain trigger contract changed.'
+}
+if ($slain.GetAttribute('isActive') -cne 'yes' -or $package.SelectNodes('//Trigger[@isActive="yes" and name="Denizen slain"]').Count -ne 1) {
+    throw 'Expected one active Denizen slain trigger in System/Autobasher.'
+}
+foreach ($name in @('a warrior ant', "a warrior's pet", 'Fido')) {
+    $text = 'The final blow is too much, you have slain ' + $name + '.'
+    if ($text -cnotmatch $slainPatterns[0].InnerText -or $Matches[1] -cne $name) { throw ('Denizen slain miscaptures: ' + $text) }
+    foreach ($invalid in @(('prefix ' + $text), ($text + ' extra'), $text.Replace('.','!'))) {
+        if ($invalid -cmatch $slainPatterns[0].InnerText) { throw ('Denizen slain incorrectly accepts: ' + $invalid) }
+    }
 }
 $missingNodes = @($package.SelectNodes('//TriggerPackage/TriggerGroup[name="System"]/TriggerGroup[name="Autobasher"]/Trigger[name="Target absent"]'))
 if ($missingNodes.Count -ne 1) { throw 'Target absent trigger is missing or duplicated.' }
@@ -233,13 +192,9 @@ try {
     $chunks.Add('matches = {"t " .. ref, ref}')
     $chunks.Add(('return assert((loadstring or load)([====[{0}]====], "Targeting alias"))()' -f $targetAlias.script))
     $chunks.Add('end')
-    $chunks.Add('function DEMONIC_TEST_ENTERED(direction)')
-    $chunks.Add('matches = {"You walk " .. direction .. ".", direction}')
-    $chunks.Add(('return assert((loadstring or load)([====[{0}]====], "Room entered trigger"))()' -f $enteredTrigger.script))
-    $chunks.Add('end')
-    $chunks.Add('function DEMONIC_TEST_HEADING(name, id)')
-    $chunks.Add('line = name .. ". " .. tostring(id) .. "."; matches = {line, name, tostring(id)}')
-    $chunks.Add(('return assert((loadstring or load)([====[{0}]====], "Room heading trigger"))()' -f $headingTrigger.script))
+    $chunks.Add('function DEMONIC_TEST_KILL(name)')
+    $chunks.Add('line = "The final blow is too much, you have slain " .. name .. "."; matches = {line, name}')
+    $chunks.Add(('return assert((loadstring or load)([====[{0}]====], "Denizen slain trigger"))()' -f $slain.script))
     $chunks.Add('end')
     $chunks.Add('function DEMONIC_TEST_HUNT_STATUS(detailed)')
     $chunks.Add('matches = {detailed and "hunt status debug" or "hunt status", detailed and "debug" or nil}')
