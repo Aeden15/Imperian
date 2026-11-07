@@ -52,7 +52,7 @@ local function watchAction(action)
   local elapsed = math.max(0, dem.now() - (action.started or dem.now()))
   dem.defer('attack-watchdog', math.max(0, 10 - elapsed), function()
     if hunt.enabled and dem.balances.action == action then
-      hunt.stop('The last attack has not completed a confirmed balance cycle.')
+      hunt.stop('The last action has not completed a confirmed balance cycle.')
     end
   end)
 end
@@ -72,12 +72,13 @@ function hunt.stop(reason)
   watchedAction, selected, manualReference = nil, nil, nil
   clearOwned()
   if wasEnabled then message('Hunt mode off' .. (reason and ': ' .. reason or '.')) end
+  if wasEnabled and dem.defences and dem.defences.enabled then schedule() end
 end
 
 function hunt.onAttackRejected(reason)
   local action = dem.balances.action
-  if action and action == hunt.lastAction and dem.balances.rejectAction(action) then
-    hunt.lastAction = nil
+  if action and (action == hunt.lastAction or action.kind == 'shield') and dem.balances.rejectAction(action) then
+    if action == hunt.lastAction then hunt.lastAction = nil end
   end
   hunt.stop(reason or 'The submitted attack was refused.')
 end
@@ -195,12 +196,35 @@ function hunt.step()
   if not hunt.enabled then return end
   local v, b, room = dem.vitals, dem.balances, dem.room
   if b.dead then hunt.stop('You are dead.'); return end
+  local shielding = v and finite(v.hp) and finite(v.maxhp) and v.maxhp > 0
+    and v.hp > 0 and v.hp / v.maxhp * 100 <= 40
   -- A known low percentage stops immediately, even while another field is missing.
-  if v and finite(v.hp) and finite(v.maxhp) and v.maxhp > 0 and v.hp / v.maxhp * 100 <= dem.settings.hpLimit then
+  if not shielding and v and finite(v.hp) and finite(v.maxhp) and v.maxhp > 0 and v.hp / v.maxhp * 100 <= dem.settings.hpLimit then
     hunt.stop('Health reached the configured limit.'); return
   end
   if v and finite(v.mp) and finite(v.maxmp) and v.maxmp > 0 and v.mp / v.maxmp * 100 <= dem.settings.manaLimit then
     hunt.stop('Mana reached the configured limit.'); return
+  end
+  if shielding then
+    if not knownVitals() or b.bal == nil or b.eq == nil or v.prone == nil or v.stunned == nil then
+      waitForState('Waiting for character data to shield.'); return
+    end
+    cancelState()
+    if b.action then hunt.reason = 'Shielding: waiting for the current action recovery.'; watchAction(b.action); return end
+    watchedAction = nil
+    if not b.bal or not b.eq or v.prone or v.stunned then
+      hunt.reason = 'Shielding: waiting for balance, equilibrium, standing and unstunned status.'; return
+    end
+    local cost = dem.ritualism.manaCost({'inversion', 'hammer'})
+    if not cost or v.mp < cost then hunt.reason = 'Shielding: waiting for 18 mana.'; return end
+    local command, err = dem.ritualism.buildTrace({'inversion', 'hammer'}, 'me')
+    if not command then hunt.stop(err); return end
+    local action = {kind = 'shield', started = dem.now()}
+    if not b.beginAction(action) then return end
+    hunt.reason = 'Shielding: waiting for confirmed balance recovery.'
+    watchAction(action)
+    send(command)
+    return
   end
   if dem.targeting.kind == 'pending' then
     waitForState('Waiting to identify the selected target.'); return
@@ -234,7 +258,7 @@ function hunt.step()
   -- Sending a generic word here would let the server switch matching denizens.
   local command, err = dem.ritualism.buildTrace({'fire', 'ice'}, candidate.key)
   if not command then hunt.stop(err or 'Cannot build the hunting attack.'); return end
-  local action = {reference = dem.target, key = candidate.key, room = room.num, generation = room.generation,
+  local action = {kind = 'attack', reference = dem.target, key = candidate.key, room = room.num, generation = room.generation,
     item = candidate.item, retired = false, started = dem.now()}
   if not b.beginAction(action) then return end
   local name = dem.norm(candidate.item.name)
@@ -282,6 +306,7 @@ local function retire(action)
         manualReference, selected = nil, nil
         dem.targeting.clear('hunt')
       end
+      dem.room.notify()
     end
   end
   -- A preceding GMCP Remove may have retired this action before its kill text.
@@ -339,6 +364,7 @@ function hunt.add(name)
   dem.settings.areas[area][name] = true
   dem.saveSettings()
   message('Added ' .. name .. ' in ' .. area .. '.')
+  if type(raiseEvent) == 'function' then raiseEvent('dem.huntListChanged') end
   schedule()
   return true
 end
@@ -350,6 +376,7 @@ function hunt.remove(name)
   if dem.settings.areas[area] then dem.settings.areas[area][name] = nil end
   dem.saveSettings()
   message('Removed ' .. name .. ' in ' .. area .. '.')
+  if type(raiseEvent) == 'function' then raiseEvent('dem.huntListChanged') end
   if selected and not selected.manual and not dem.room.matchesAllowlist(selected.item, areaList()) then
     selected = nil; clearOwned()
   end

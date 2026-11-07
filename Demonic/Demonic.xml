@@ -32,6 +32,26 @@
 				<colorTriggerBgColor>#000000</colorTriggerBgColor>
 				<regexCodeList />
 				<regexCodePropertyList />
+				<Trigger isActive="yes" isFolder="no" isTempTrigger="no" isMultiline="no" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
+					<name>Vitality activated</name>
+					<script>dem.defences.setActive("vitality", true)</script>
+					<triggerType>0</triggerType>
+					<conditonLineDelta>0</conditonLineDelta>
+					<mStayOpen>0</mStayOpen>
+					<mCommand />
+					<packageName />
+					<mFgColor>#ff0000</mFgColor>
+					<mBgColor>#ffff00</mBgColor>
+					<mSoundFile />
+					<colorTriggerFgColor>#000000</colorTriggerFgColor>
+					<colorTriggerBgColor>#000000</colorTriggerBgColor>
+					<regexCodeList>
+						<string>^You sketch the Anae-antarea symbol in the air, and a feeling of anticipation fills the air as a glow surrounds you momentarily\.$</string>
+					</regexCodeList>
+					<regexCodePropertyList>
+						<integer>1</integer>
+					</regexCodePropertyList>
+				</Trigger>
 			</TriggerGroup>
 			<TriggerGroup isActive="yes" isFolder="yes" isTempTrigger="no" isMultiline="no" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
 				<name>Malignosis</name>
@@ -48,6 +68,162 @@
 				<colorTriggerBgColor>#000000</colorTriggerBgColor>
 				<regexCodeList />
 				<regexCodePropertyList />
+				<TriggerGroup isActive="yes" isFolder="yes" isTempTrigger="no" isMultiline="no" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
+					<name>Ouroboros</name>
+					<script />
+					<triggerType>0</triggerType>
+					<conditonLineDelta>0</conditonLineDelta>
+					<mStayOpen>0</mStayOpen>
+					<mCommand />
+					<packageName />
+					<mFgColor>#ff0000</mFgColor>
+					<mBgColor>#ffff00</mBgColor>
+					<mSoundFile />
+					<colorTriggerFgColor>#000000</colorTriggerFgColor>
+					<colorTriggerBgColor>#000000</colorTriggerBgColor>
+					<regexCodeList />
+					<regexCodePropertyList />
+					<Trigger isActive="yes" isFolder="no" isTempTrigger="no" isMultiline="no" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
+						<name>Demon regeneration</name>
+						<script>dem.defences.setActive("regeneration", true)</script>
+						<triggerType>0</triggerType>
+						<conditonLineDelta>0</conditonLineDelta>
+						<mStayOpen>0</mStayOpen>
+						<mCommand />
+						<packageName />
+						<mFgColor>#ff0000</mFgColor>
+						<mBgColor>#ffff00</mBgColor>
+						<mSoundFile />
+						<colorTriggerFgColor>#000000</colorTriggerFgColor>
+						<colorTriggerBgColor>#000000</colorTriggerBgColor>
+						<regexCodeList>
+							<string>^You demand aid from your Ouroboros, and it it surrounds you with a glowing red ring\.$</string>
+						</regexCodeList>
+						<regexCodePropertyList>
+							<integer>1</integer>
+						</regexCodePropertyList>
+					</Trigger>
+					<Trigger isActive="yes" isFolder="no" isTempTrigger="no" isMultiline="no" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
+						<name>Demon armor</name>
+						<script>dem.defences.setActive("armor", true)</script>
+						<triggerType>0</triggerType>
+						<conditonLineDelta>0</conditonLineDelta>
+						<mStayOpen>0</mStayOpen>
+						<mCommand />
+						<packageName />
+						<mFgColor>#ff0000</mFgColor>
+						<mBgColor>#ffff00</mBgColor>
+						<mSoundFile />
+						<colorTriggerFgColor>#000000</colorTriggerFgColor>
+						<colorTriggerBgColor>#000000</colorTriggerBgColor>
+						<regexCodeList>
+							<string>^You ask your Ouroboros for its protection, and it summons a thin black protecting sheen over you\.$</string>
+						</regexCodeList>
+						<regexCodePropertyList>
+							<integer>1</integer>
+						</regexCodePropertyList>
+					</Trigger>
+					<Trigger isActive="yes" isFolder="no" isTempTrigger="no" isMultiline="no" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
+						<name>Missing ouroboros</name>
+						<script>dem.defences.setActive("ouroboros", false)</script>
+						<triggerType>0</triggerType>
+						<conditonLineDelta>0</conditonLineDelta>
+						<mStayOpen>0</mStayOpen>
+						<mCommand />
+						<packageName />
+						<mFgColor>#ff0000</mFgColor>
+						<mBgColor>#ffff00</mBgColor>
+						<mSoundFile />
+						<colorTriggerFgColor>#000000</colorTriggerFgColor>
+						<colorTriggerBgColor>#000000</colorTriggerBgColor>
+						<regexCodeList>
+							<string>^With a disimpassioned gesture, you banish your Ouroboros back to the Pit from which it came\.$</string>
+						</regexCodeList>
+						<regexCodePropertyList>
+							<integer>1</integer>
+						</regexCodePropertyList>
+					</Trigger>
+					<Trigger isActive="yes" isFolder="no" isTempTrigger="no" isMultiline="no" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
+						<name>Summoned ouroboros</name>
+						<script>dem.defences.setActive("ouroboros", true)</script>
+						<triggerType>0</triggerType>
+						<conditonLineDelta>0</conditonLineDelta>
+						<mStayOpen>0</mStayOpen>
+						<mCommand />
+						<packageName />
+						<mFgColor>#ff0000</mFgColor>
+						<mBgColor>#ffff00</mBgColor>
+						<mSoundFile />
+						<colorTriggerFgColor>#000000</colorTriggerFgColor>
+						<colorTriggerBgColor>#000000</colorTriggerBgColor>
+						<regexCodeList>
+							<string>^You call out, ordering your Ouroboros to return to serve your will\.$</string>
+						</regexCodeList>
+						<regexCodePropertyList>
+							<integer>1</integer>
+						</regexCodePropertyList>
+					</Trigger>
+					<Trigger isActive="yes" isFolder="no" isTempTrigger="no" isMultiline="no" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
+						<name>Soulmask</name>
+						<script>dem.defences.setActive("soulmask", true)</script>
+						<triggerType>0</triggerType>
+						<conditonLineDelta>0</conditonLineDelta>
+						<mStayOpen>0</mStayOpen>
+						<mCommand />
+						<packageName />
+						<mFgColor>#ff0000</mFgColor>
+						<mBgColor>#ffff00</mBgColor>
+						<mSoundFile />
+						<colorTriggerFgColor>#000000</colorTriggerFgColor>
+						<colorTriggerBgColor>#000000</colorTriggerBgColor>
+						<regexCodeList>
+							<string>^Your Ouroboros glows faintly, and you feel your presence masked from prying eyes\.$</string>
+						</regexCodeList>
+						<regexCodePropertyList>
+							<integer>1</integer>
+						</regexCodePropertyList>
+					</Trigger>
+					<Trigger isActive="yes" isFolder="no" isTempTrigger="no" isMultiline="no" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
+						<name>Syphon ceased</name>
+						<script>dem.defences.setActive("syphon", false)</script>
+						<triggerType>0</triggerType>
+						<conditonLineDelta>0</conditonLineDelta>
+						<mStayOpen>0</mStayOpen>
+						<mCommand />
+						<packageName />
+						<mFgColor>#ff0000</mFgColor>
+						<mBgColor>#ffff00</mBgColor>
+						<mSoundFile />
+						<colorTriggerFgColor>#000000</colorTriggerFgColor>
+						<colorTriggerBgColor>#000000</colorTriggerBgColor>
+						<regexCodeList>
+							<string>^Your Ouroboros ceases its disease syphoning\.$</string>
+						</regexCodeList>
+						<regexCodePropertyList>
+							<integer>1</integer>
+						</regexCodePropertyList>
+					</Trigger>
+					<Trigger isActive="yes" isFolder="no" isTempTrigger="no" isMultiline="no" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
+						<name>Syphoning on</name>
+						<script>dem.defences.setActive("syphon", true)</script>
+						<triggerType>0</triggerType>
+						<conditonLineDelta>0</conditonLineDelta>
+						<mStayOpen>0</mStayOpen>
+						<mCommand />
+						<packageName />
+						<mFgColor>#ff0000</mFgColor>
+						<mBgColor>#ffff00</mBgColor>
+						<mSoundFile />
+						<colorTriggerFgColor>#000000</colorTriggerFgColor>
+						<colorTriggerBgColor>#000000</colorTriggerBgColor>
+						<regexCodeList>
+							<string>^You implore your Ouroboros to help its beloved master, and the heat of its power begins to wash over you\.$</string>
+						</regexCodeList>
+						<regexCodePropertyList>
+							<integer>1</integer>
+						</regexCodePropertyList>
+					</Trigger>
+				</TriggerGroup>
 			</TriggerGroup>
 			<TriggerGroup isActive="yes" isFolder="yes" isTempTrigger="no" isMultiline="no" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
 				<name>Nightfall</name>
@@ -64,6 +240,46 @@
 				<colorTriggerBgColor>#000000</colorTriggerBgColor>
 				<regexCodeList />
 				<regexCodePropertyList />
+				<Trigger isActive="yes" isFolder="no" isTempTrigger="no" isMultiline="no" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
+					<name>Nightfall defence</name>
+					<script>dem.defences.setActive("nightfall", true)</script>
+					<triggerType>0</triggerType>
+					<conditonLineDelta>0</conditonLineDelta>
+					<mStayOpen>0</mStayOpen>
+					<mCommand />
+					<packageName />
+					<mFgColor>#ff0000</mFgColor>
+					<mBgColor>#ffff00</mBgColor>
+					<mSoundFile />
+					<colorTriggerFgColor>#000000</colorTriggerFgColor>
+					<colorTriggerBgColor>#000000</colorTriggerBgColor>
+					<regexCodeList>
+						<string>^Concentrating deeply, you call forth an all-encompassing darkness that rapidly surrounds you\.$</string>
+					</regexCodeList>
+					<regexCodePropertyList>
+						<integer>1</integer>
+					</regexCodePropertyList>
+				</Trigger>
+				<Trigger isActive="yes" isFolder="no" isTempTrigger="no" isMultiline="no" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
+					<name>Nightfall cease</name>
+					<script>dem.defences.setActive("nightfall", false)</script>
+					<triggerType>0</triggerType>
+					<conditonLineDelta>0</conditonLineDelta>
+					<mStayOpen>0</mStayOpen>
+					<mCommand />
+					<packageName />
+					<mFgColor>#ff0000</mFgColor>
+					<mBgColor>#ffff00</mBgColor>
+					<mSoundFile />
+					<colorTriggerFgColor>#000000</colorTriggerFgColor>
+					<colorTriggerBgColor>#000000</colorTriggerBgColor>
+					<regexCodeList>
+						<string>^The darkness around you dissipates\.$</string>
+					</regexCodeList>
+					<regexCodePropertyList>
+						<integer>1</integer>
+					</regexCodePropertyList>
+				</Trigger>
 			</TriggerGroup>
 		</TriggerGroup>
 		<TriggerGroup isActive="yes" isFolder="yes" isTempTrigger="no" isMultiline="no" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
@@ -345,6 +561,13 @@
 				<command />
 				<packageName />
 				<regex />
+				<Alias isActive="yes" isFolder="no">
+					<name>Defs</name>
+					<script>dem.defences.toggle()</script>
+					<command></command>
+					<packageName></packageName>
+					<regex>^ddef$</regex>
+				</Alias>
 			</AliasGroup>
 			<AliasGroup isActive="yes" isFolder="yes">
 				<name>Malignosis</name>
@@ -430,6 +653,34 @@
 					<regex>^t (\w+)$</regex>
 				</Alias>
 			</AliasGroup>
+			<AliasGroup isActive="yes" isFolder="yes">
+				<name>GUI</name>
+				<script />
+				<command />
+				<packageName />
+				<regex />
+				<Alias isActive="yes" isFolder="no">
+					<name>Show room GUI</name>
+					<script>dem.ui.show()</script>
+					<command></command>
+					<packageName></packageName>
+					<regex>^demui show$</regex>
+				</Alias>
+				<Alias isActive="yes" isFolder="no">
+					<name>Hide room GUI</name>
+					<script>dem.ui.hide()</script>
+					<command></command>
+					<packageName></packageName>
+					<regex>^demui hide$</regex>
+				</Alias>
+				<Alias isActive="yes" isFolder="no">
+					<name>Reset room GUI</name>
+					<script>dem.ui.resetLayout()</script>
+					<command></command>
+					<packageName></packageName>
+					<regex>^demui reset$</regex>
+				</Alias>
+			</AliasGroup>
 		</AliasGroup>
 	</AliasPackage>
 	<ActionPackage />
@@ -512,11 +763,14 @@ end
 function dem.schedule()
   if not active or dem.runtime.timers['hunt-step'] then return end
   dem.defer('hunt-step', 0, function()
-    if dem.targeting and type(dem.targeting.resolvePending) == 'function' then
-      dem.targeting.resolvePending()
-    end
-    if dem.hunt and type(dem.hunt.step) == 'function' then dem.hunt.step() end
+    dem.step()
   end)
+end
+
+function dem.step()
+  dem.targeting.resolvePending()
+  dem.defences.step()
+  dem.hunt.step()
 end
 
 function dem.joinCommands(commands)
@@ -561,6 +815,8 @@ end
 function dem.shutdown()
   if not active then return end
   active = false
+  if dem.defences then dem.defences.reset('Package stopped.') end
+  if dem.ui and type(dem.ui.shutdown) == 'function' then pcall(dem.ui.shutdown) end
   if dem.hunt then
     if type(dem.hunt.stop) == 'function' then dem.hunt.stop('Package stopped.')
     else dem.hunt.enabled = false end
@@ -651,6 +907,7 @@ end
 dem.balances = {bal = nil, eq = nil, action = nil, dead = false}
 local balances = dem.balances
 local resourceAuthority = {hp = false, mp = false}
+local readinessSerial = {bal = 0, eq = 0}
 
 local function number(value)
   local result = tonumber(value)
@@ -665,14 +922,19 @@ end
 local function release()
   balances.action = nil
   dem.cancel('attack-watchdog')
+  dem.cancel('defence-watchdog')
 end
 
 local function readiness(kind, ready, explicitRecovery)
   balances[kind] = ready
-  if kind == 'bal' and balances.action then
+  if ready ~= nil then readinessSerial[kind] = readinessSerial[kind] + 1 end
+  if balances.action and kind == (balances.action.resource or 'bal') then
     if ready == false then
       balances.action.lost = true
-    elseif ready == true and (explicitRecovery or balances.action.lost) then release() end
+    elseif ready == true and (explicitRecovery or balances.action.lost) then
+      balances.action.recovered = true
+      if balances.action.kind ~= 'defence' or balances.action.confirmed then release() end
+    end
   end
 end
 
@@ -745,11 +1007,31 @@ end
 
 function balances.beginAction(action)
   if type(action) ~= 'table' or balances.action then return false end
-  action.lost = balances.bal == false
+  action.resource = action.resource or 'bal'
+  action.lost = balances[action.resource] == false
+  action.readiness = {bal = readinessSerial.bal, eq = readinessSerial.eq}
   balances.action = action
   -- Local pessimism gates sends; it is not evidence of a server balance cycle.
-  balances.bal = false
+  if action.resource ~= 'prompt' then balances[action.resource] = false end
   return true
+end
+
+function balances.confirmDefence(action)
+  if balances.action ~= action or action.kind ~= 'defence' then return false end
+  if not action.confirmed then
+    action.confirmed = true
+    action.confirmedPrompt = dem.runtime.promptSerial or 0
+  end
+  if action.resource ~= 'prompt' and action.recovered then release() end
+  return true
+end
+
+function balances.onPrompt()
+  local action = balances.action
+  if action and action.kind == 'defence' and action.resource == 'prompt' and action.confirmed
+      and (dem.runtime.promptSerial or 0) &gt; action.confirmedPrompt
+      and readinessSerial.bal &gt; action.readiness.bal and readinessSerial.eq &gt; action.readiness.eq
+      and balances.bal == true and balances.eq == true then release() end
 end
 
 function balances.rejectAction(action)
@@ -797,6 +1079,7 @@ function balances.reset()
   release()
   balances.dead = false
   resourceAuthority = {hp = false, mp = false}
+  readinessSerial = {bal = 0, eq = 0}
   balances.bal, balances.eq = nil, nil
   balances.balDuration, balances.eqDuration = nil, nil
   dem.vitals = {hp = nil, maxhp = nil, mp = nil, maxmp = nil, stunned = nil, prone = nil}
@@ -816,7 +1099,7 @@ end
 					<script>-- Room.Info owns identity. Item packets form an ordered, untagged stream:
 -- a room list can refresh the currently reported room, never establish one.
 -- Generations protect local callbacks and submitted target identities.
-dem.room = {items = {}, order = {}, retired = {}, ready = false,
+dem.room = {items = {}, order = {}, retired = {}, ready = false, players = {}, playersReady = false,
   phase = 'unconfirmed', generation = 0, contextId = 0}
 local room = dem.room
 local lastReceivedRoom, refreshError
@@ -842,9 +1125,13 @@ local function record(value, previous)
   return result, key
 end
 
-local function changed()
+local function changed(reason)
   if dem.schedule then dem.schedule() end
+  if type(raiseEvent) == 'function' then raiseEvent('dem.roomChanged', reason or 'update') end
 end
+
+-- Also used after Hunt retires an ID without waiting for another GMCP packet.
+function room.notify(reason) changed(reason) end
 
 function room.living(item)
   if type(item) ~= 'table' or not id(item.id) or type(item.name) ~= 'string'
@@ -905,17 +1192,20 @@ end
 local function invalidate()
   room.cancelRefresh()
   room.generation = room.generation + 1
-  room.num, room.area = nil, nil
+  room.num, room.area, room.name = nil, nil, nil
   room.items, room.order, room.retired = {}, {}, {}
+  room.players, room.playersReady = {}, false
   room.ready, room.phase = false, 'unconfirmed'
   refreshError = nil
 end
 
-function room.reset()
+function room.reset(disconnected)
   invalidate()
   room.contextId = room.contextId + 1
   lastReceivedRoom = nil
   room.subscribed, room.processingList = false, false
+  room.disconnected = disconnected == true
+  changed('reset')
 end
 
 function room.subscribe()
@@ -999,6 +1289,7 @@ function room.onInfo(payload)
   local number = id(payload.num)
   if not number then return end
   lastReceivedRoom = number
+  local newIdentity = number ~= room.num
   if number ~= room.num then
     -- The first identity is a snapshot, so a pending initial selection keeps
     -- its context. Every actual transition starts a different target context.
@@ -1012,7 +1303,46 @@ function room.onInfo(payload)
   elseif payload.area ~= nil then
     room.area = area(payload.area)
   end
-  changed()
+  if payload.name ~= nil then room.name = area(payload.name) end
+  room.disconnected = false
+  changed(newIdentity and 'identity' or 'update')
+end
+
+local function player(value, shortName)
+  if type(value) == 'string' and type(shortName) == 'string' then
+    value = {name = shortName, fullname = value}
+  end
+  if type(value) ~= 'table' then return nil end
+  local name = dem.validReference(value.name)
+  if not name then return nil end
+  return {name = name, fullname = type(value.fullname) == 'string' and value.fullname or name}, name:lower()
+end
+
+function room.onPlayers(payload)
+  if not room.num or type(payload) ~= 'table' then return end
+  local players = {}
+  for key, value in pairs(payload) do
+    local entry, name = player(value, key)
+    if entry then players[name] = entry end
+  end
+  room.players, room.playersReady = players, true
+  changed('players')
+end
+
+function room.onAddPlayer(payload)
+  if not room.num then return end
+  local entry, name = player(payload)
+  if not entry then return end
+  room.players[name] = entry
+  changed('players')
+end
+
+function room.onRemovePlayer(payload)
+  if not room.num then return end
+  local name = dem.validReference(type(payload) == 'table' and payload.name or payload)
+  if not name then return end
+  room.players[name:lower()] = nil
+  changed('players')
 end
 
 function room.onList(payload)
@@ -1184,7 +1514,7 @@ local function watchAction(action)
   local elapsed = math.max(0, dem.now() - (action.started or dem.now()))
   dem.defer('attack-watchdog', math.max(0, 10 - elapsed), function()
     if hunt.enabled and dem.balances.action == action then
-      hunt.stop('The last attack has not completed a confirmed balance cycle.')
+      hunt.stop('The last action has not completed a confirmed balance cycle.')
     end
   end)
 end
@@ -1204,12 +1534,13 @@ function hunt.stop(reason)
   watchedAction, selected, manualReference = nil, nil, nil
   clearOwned()
   if wasEnabled then message('Hunt mode off' .. (reason and ': ' .. reason or '.')) end
+  if wasEnabled and dem.defences and dem.defences.enabled then schedule() end
 end
 
 function hunt.onAttackRejected(reason)
   local action = dem.balances.action
-  if action and action == hunt.lastAction and dem.balances.rejectAction(action) then
-    hunt.lastAction = nil
+  if action and (action == hunt.lastAction or action.kind == 'shield') and dem.balances.rejectAction(action) then
+    if action == hunt.lastAction then hunt.lastAction = nil end
   end
   hunt.stop(reason or 'The submitted attack was refused.')
 end
@@ -1327,12 +1658,35 @@ function hunt.step()
   if not hunt.enabled then return end
   local v, b, room = dem.vitals, dem.balances, dem.room
   if b.dead then hunt.stop('You are dead.'); return end
+  local shielding = v and finite(v.hp) and finite(v.maxhp) and v.maxhp &gt; 0
+    and v.hp &gt; 0 and v.hp / v.maxhp * 100 &lt;= 40
   -- A known low percentage stops immediately, even while another field is missing.
-  if v and finite(v.hp) and finite(v.maxhp) and v.maxhp &gt; 0 and v.hp / v.maxhp * 100 &lt;= dem.settings.hpLimit then
+  if not shielding and v and finite(v.hp) and finite(v.maxhp) and v.maxhp &gt; 0 and v.hp / v.maxhp * 100 &lt;= dem.settings.hpLimit then
     hunt.stop('Health reached the configured limit.'); return
   end
   if v and finite(v.mp) and finite(v.maxmp) and v.maxmp &gt; 0 and v.mp / v.maxmp * 100 &lt;= dem.settings.manaLimit then
     hunt.stop('Mana reached the configured limit.'); return
+  end
+  if shielding then
+    if not knownVitals() or b.bal == nil or b.eq == nil or v.prone == nil or v.stunned == nil then
+      waitForState('Waiting for character data to shield.'); return
+    end
+    cancelState()
+    if b.action then hunt.reason = 'Shielding: waiting for the current action recovery.'; watchAction(b.action); return end
+    watchedAction = nil
+    if not b.bal or not b.eq or v.prone or v.stunned then
+      hunt.reason = 'Shielding: waiting for balance, equilibrium, standing and unstunned status.'; return
+    end
+    local cost = dem.ritualism.manaCost({'inversion', 'hammer'})
+    if not cost or v.mp &lt; cost then hunt.reason = 'Shielding: waiting for 18 mana.'; return end
+    local command, err = dem.ritualism.buildTrace({'inversion', 'hammer'}, 'me')
+    if not command then hunt.stop(err); return end
+    local action = {kind = 'shield', started = dem.now()}
+    if not b.beginAction(action) then return end
+    hunt.reason = 'Shielding: waiting for confirmed balance recovery.'
+    watchAction(action)
+    send(command)
+    return
   end
   if dem.targeting.kind == 'pending' then
     waitForState('Waiting to identify the selected target.'); return
@@ -1366,7 +1720,7 @@ function hunt.step()
   -- Sending a generic word here would let the server switch matching denizens.
   local command, err = dem.ritualism.buildTrace({'fire', 'ice'}, candidate.key)
   if not command then hunt.stop(err or 'Cannot build the hunting attack.'); return end
-  local action = {reference = dem.target, key = candidate.key, room = room.num, generation = room.generation,
+  local action = {kind = 'attack', reference = dem.target, key = candidate.key, room = room.num, generation = room.generation,
     item = candidate.item, retired = false, started = dem.now()}
   if not b.beginAction(action) then return end
   local name = dem.norm(candidate.item.name)
@@ -1414,6 +1768,7 @@ local function retire(action)
         manualReference, selected = nil, nil
         dem.targeting.clear('hunt')
       end
+      dem.room.notify()
     end
   end
   -- A preceding GMCP Remove may have retired this action before its kill text.
@@ -1471,6 +1826,7 @@ function hunt.add(name)
   dem.settings.areas[area][name] = true
   dem.saveSettings()
   message('Added ' .. name .. ' in ' .. area .. '.')
+  if type(raiseEvent) == 'function' then raiseEvent('dem.huntListChanged') end
   schedule()
   return true
 end
@@ -1482,6 +1838,7 @@ function hunt.remove(name)
   if dem.settings.areas[area] then dem.settings.areas[area][name] = nil end
   dem.saveSettings()
   message('Removed ' .. name .. ' in ' .. area .. '.')
+  if type(raiseEvent) == 'function' then raiseEvent('dem.huntListChanged') end
   if selected and not selected.manual and not dem.room.matchesAllowlist(selected.item, areaList()) then
     selected = nil; clearOwned()
   end
@@ -1542,6 +1899,327 @@ end
 					<eventHandlerList />
 				</Script>
 			</ScriptGroup>
+			<ScriptGroup isActive="yes" isFolder="yes">
+				<name>GUI</name>
+				<packageName />
+				<script />
+				<eventHandlerList />
+				<Script isActive="yes" isFolder="no">
+					<name>Room GUI</name>
+					<packageName></packageName>
+					<script>-- The GUI is a view of dem.room, never a second roster or attack controller.
+dem.ui = {panels = {}, initialized = false}
+local ui, owner, stopped, reported = dem.ui, dem, false, nil
+local kinds = {'denizens', 'items', 'players'}
+local titles = {denizens = 'Denizens', items = 'Items', players = 'Players'}
+local positions = {denizens = '0%', items = '33%', players = '66%'}
+ui.palette = {
+  background = '#17151e', border = '#87394c', accent = '#b78aef',
+  normal = {220, 216, 228}, allowed = {245, 199, 92}, selected = {196, 155, 255},
+  players = {103, 220, 235}, items = {132, 211, 156}, muted = {145, 139, 153}
+}
+
+local function current() return not stopped and dem == owner end
+local function safe(fn, ...)
+  local ok, result = pcall(fn, ...)
+  if not ok then
+    ui.lastError = tostring(result)
+    if reported ~= ui.lastError then
+      reported = ui.lastError
+      pcall(owner.message, 'Room GUI: ' .. ui.lastError)
+    end
+    return false
+  end
+  return true, result
+end
+
+local function literal(value)
+  -- echo/echoPopup display literal text; discard terminal escapes/control bytes.
+  return tostring(value or ''):gsub('\27%[[0-?]*[ -/]*[@-~]', ''):gsub('[%c]', ' ')
+end
+
+local function write(console, text, color, actions, hints)
+  local rgb = ui.palette[color] or ui.palette.normal
+  console:setFgColor(rgb[1], rgb[2], rgb[3])
+  if actions and #actions &gt; 0 then
+    console:echoPopup(literal(text), actions, hints, true)
+    console:echo('\n')
+  else console:echo(literal(text) .. '\n') end
+end
+
+local function visible()
+  for _, kind in ipairs(kinds) do
+    local panel = ui.panels[kind]
+    if panel and not panel.container.hidden then return true end
+  end
+  return false
+end
+
+local function requestMissing()
+  if not current() or not ui.initialized or not visible() or not owner.room.num
+      or owner.room.ready then return end
+  owner.room.subscribe()
+  owner.room.request('Room GUI is waiting for room contents', false)
+end
+
+local function callback(check, action)
+  local context, num = owner.room.contextId, owner.room.num
+  return function()
+    if not current() or not ui.initialized or owner.room.contextId ~= context
+        or owner.room.num ~= num then return end
+    safe(function() if check() then action() end end)
+  end
+end
+
+local function itemNow(key)
+  local item = owner.room.items[key]
+  if not owner.room.ready or type(item) ~= 'table' or item.id ~= key then return nil end
+  return item
+end
+
+local function targetAction(key)
+  return callback(function()
+    return not owner.room.retired[key] and owner.room.eligible(itemNow(key))
+  end, function() owner.targeting.setDenizen(key) end)
+end
+
+local function idLess(a, b)
+  if #a ~= #b then return #a &lt; #b end
+  return a &lt; b
+end
+
+local function nameLess(a, b)
+  local left, right = a.name:lower(), b.name:lower()
+  if left == right then return a.name &lt; b.name end
+  return left &lt; right
+end
+
+local function selectedId()
+  if owner.targeting.kind ~= 'denizen' or not owner.target then return nil end
+  local action = owner.hunt.lastAction
+  local preferred = action and action.reference == owner.target and action.key or nil
+  local _, key = owner.room.identify(owner.target, preferred)
+  return owner.room.items[key] and key or nil
+end
+
+local function denizens(console)
+  local byName, groups, count = {}, {}, 0
+  local selected = selectedId()
+  local allowed = owner.settings.areas[owner.room.area]
+  for _, key in ipairs(owner.room.order) do
+    local item = owner.room.items[key]
+    if owner.room.living(item) and not owner.room.retired[key] then
+      local group = byName[item.name]
+      if not group then
+        group = {name = item.name, ids = {}, allowed = false, selected = false, protected = 0}
+        byName[item.name] = group; groups[#groups + 1] = group
+      end
+      group.ids[#group.ids + 1] = key; count = count + 1
+      if key == selected then group.selected = true end
+      if owner.room.eligible(item) then
+        group.allowed = group.allowed or owner.room.matchesAllowlist(item, allowed)
+      else group.protected = group.protected + 1 end
+    end
+  end
+  table.sort(groups, nameLess)
+  for _, group in ipairs(groups) do
+    table.sort(group.ids, idLess)
+    local actions, hints = {}, {}
+    for _, key in ipairs(group.ids) do
+      if owner.room.eligible(owner.room.items[key]) then
+        actions[#actions + 1] = targetAction(key); hints[#hints + 1] = 'Target ID ' .. key
+      end
+    end
+    local groupName, area = group.name, owner.room.area
+    if area and group.protected &lt; #group.ids then
+      actions[#actions + 1] = callback(function()
+        if owner.room.area ~= area or not owner.room.ready then return false end
+        for _, item in pairs(owner.room.items) do
+          if item.name == groupName and not owner.room.retired[item.id] and owner.room.eligible(item) then return true end
+        end
+        return false
+      end, function() owner.hunt.add(groupName) end)
+      hints[#hints + 1] = 'Add name to this area\'s hunt list'
+    end
+    local text = (group.selected and '[T] ' or '') .. group.name
+    if #group.ids &gt; 1 then text = text .. ' x' .. #group.ids end
+    if group.protected &gt; 0 then
+      text = text .. (group.protected == #group.ids and ' [protected]' or ' [' .. group.protected .. ' protected]')
+    end
+    local color = group.protected == #group.ids and 'muted'
+      or (group.selected and 'selected' or (group.allowed and 'allowed' or 'normal'))
+    write(console, text, color, actions, hints)
+  end
+  return count
+end
+
+local function items(console)
+  local rows = {}
+  for _, key in ipairs(owner.room.order) do
+    local item = owner.room.items[key]
+    if type(item) == 'table' and type(item.name) == 'string' and owner.trim(item.name) ~= ''
+        and not owner.room.living(item) then rows[#rows + 1] = item end
+  end
+  table.sort(rows, function(a, b)
+    if a.name == b.name then return idLess(a.id, b.id) end
+    return nameLess(a, b)
+  end)
+  for _, item in ipairs(rows) do
+    local key = item.id
+    local function present() local live = itemNow(key); return live and not owner.room.living(live) end
+    local actions = {
+      callback(present, function() if type(send) == 'function' then send('get ' .. key) end end),
+      callback(present, function() if type(send) == 'function' then send('probe ' .. key) end end)
+    }
+    local dead = type(item.attrib) == 'string' and item.attrib:lower():find('d', 1, true)
+    write(console, item.name .. ' (' .. key .. ')', dead and 'muted' or 'items', actions, {'Get ID ' .. key, 'Probe ID ' .. key})
+  end
+  return #rows
+end
+
+local function selfName()
+  local char = type(gmcp) == 'table' and gmcp.Char
+  if type(char) ~= 'table' then return '' end
+  local name = type(char.Name) == 'table' and char.Name.name
+    or (type(char.Status) == 'table' and char.Status.name)
+  return owner.norm(name)
+end
+
+local function players(console)
+  local rows, ownName = {}, selfName()
+  for key, player in pairs(owner.room.players) do if key ~= ownName then rows[#rows + 1] = player end end
+  table.sort(rows, nameLess)
+  for _, player in ipairs(rows) do
+    local name, key = player.name, player.name:lower()
+    local action = callback(function()
+      return owner.room.playersReady and owner.room.players[key] ~= nil and key ~= selfName()
+    end, function() owner.targeting.setPlayer(name) end)
+    local selected = owner.targeting.kind == 'player' and owner.norm(owner.target) == key
+    write(console, (selected and '[T] ' or '') .. name, selected and 'selected' or 'players', {action}, {'Target ' .. name .. ': ' .. literal(player.fullname)})
+  end
+  return #rows
+end
+
+local renderers = {denizens = denizens, items = items, players = players}
+local function renderPanel(kind)
+  local panel, room = ui.panels[kind], owner.room
+  local console, count = panel.console, 0
+  console:clear()
+  if kind == 'players' and room.num then
+    write(console, room.name or 'Unknown room', 'normal')
+    write(console, (room.area or 'Unknown area') .. ' (' .. room.num .. ')', 'muted')
+    console:echo('\n')
+  end
+  if not room.num then
+    write(console, room.disconnected and 'Disconnected' or 'Waiting for room information...', 'muted')
+  elseif not (kind == 'players' and room.playersReady or kind ~= 'players' and room.ready) then
+    write(console, kind == 'players' and 'Waiting for players...' or 'Waiting for room contents...', 'muted')
+  else
+    count = renderers[kind](console)
+    if count == 0 then write(console, 'None', 'muted') end
+  end
+  panel.container:setTitle(titles[kind] .. ' (' .. count .. ')', ui.palette.accent)
+end
+
+function ui.render()
+  if not current() or not ui.initialized then return end
+  for _, kind in ipairs(kinds) do safe(renderPanel, kind) end
+end
+
+function ui.requestRender()
+  if not current() or not ui.initialized or owner.runtime.timers['ui-render'] then return end
+  owner.defer('ui-render', 0, ui.render)
+end
+
+local function dispose(save)
+  for _, kind in ipairs(kinds) do
+    local panel = ui.panels[kind]
+    if panel then
+      local container = panel.container
+      if save then safe(function() container:save() end) end
+      safe(function() container:disableAutoSave() end)
+      safe(function() if container.delete then container:delete() else container:hide() end end)
+      ui.panels[kind] = nil
+    end
+  end
+  ui.initialized = false
+end
+
+function ui.init()
+  if not current() then return false end
+  if ui.initialized then return true end
+  if not (Geyser and Geyser.Label and Geyser.MiniConsole and Adjustable and Adjustable.Container) then return false end
+  local ok = safe(function()
+    for _, kind in ipairs(kinds) do
+      local name = 'Demonic.RoomUI.' .. titles[kind]
+      local container = assert(Adjustable.Container:new({
+        name = name, x = 0, y = positions[kind], width = 300, height = '31%',
+        titleText = titles[kind], titleTxtColor = ui.palette.accent, padding = 8,
+        adjLabelstyle = 'background-color: ' .. ui.palette.background .. '; border: 2px solid ' .. ui.palette.border .. '; border-radius: 7px;',
+        buttonstyle = 'QLabel { background-color: #462438; color: #ddc5eb; border-radius: 4px; }',
+        autoSave = false, autoLoad = true
+      }), 'Could not create the ' .. titles[kind] .. ' container.')
+      ui.panels[kind] = {container = container}
+      local back = assert(Geyser.Label:new({name = name .. '.Background', x = 0, y = 0, width = '100%', height = '100%'}, container),
+        'Could not create the ' .. titles[kind] .. ' background.')
+      back:setStyleSheet('background-color: ' .. ui.palette.background .. ';')
+      ui.panels[kind].console = assert(Geyser.MiniConsole:new({
+        name = name .. '.List', x = 5, y = 4, width = '-10px', height = '-8px',
+        color = ui.palette.background, fontSize = 10, autoWrap = true, scrollBar = true
+      }, back), 'Could not create the ' .. titles[kind] .. ' console.')
+    end
+  end)
+  if not ok then dispose(false); return false end
+  ui.initialized = true
+  ui.render()
+  safe(requestMissing)
+  return true
+end
+
+function ui.show()
+  if not ui.init() then return false end
+  for _, kind in ipairs(kinds) do safe(function() ui.panels[kind].container:show() end) end
+  ui.render(); safe(requestMissing)
+  return true
+end
+
+function ui.hide()
+  if not current() or not ui.initialized then return false end
+  for _, kind in ipairs(kinds) do safe(function() ui.panels[kind].container:hide() end) end
+  return true
+end
+
+function ui.resetLayout()
+  if not ui.init() then return false end
+  for _, kind in ipairs(kinds) do
+    safe(function()
+      local container = ui.panels[kind].container
+      container:disconnect(); container:detach(); container:unlockContainer(); container:restore()
+      container:move(0, positions[kind]); container:resize(300, '31%'); container:show(); container:save()
+    end)
+  end
+  ui.render(); safe(requestMissing)
+  return true
+end
+
+function ui.shutdown()
+  if stopped then return end
+  stopped = true; owner.cancel('ui-render'); dispose(true)
+end
+
+owner.bind('dem.roomChanged', function(_, reason)
+  if not current() or not ui.initialized then return end
+  if reason == 'identity' or reason == 'reset' then
+    owner.cancel('ui-render'); ui.render()
+    if reason == 'identity' then safe(requestMissing) end
+  else ui.requestRender() end
+end)
+owner.bind('dem.targetChanged', ui.requestRender)
+owner.bind('dem.huntListChanged', ui.requestRender)
+</script>
+					<eventHandlerList />
+				</Script>
+			</ScriptGroup>
 		</ScriptGroup>
 		<ScriptGroup isActive="yes" isFolder="yes">
 			<name>Diabolist</name>
@@ -1556,7 +2234,7 @@ end
 				<Script isActive="yes" isFolder="no">
 					<name>Ritualism Commands</name>
 					<packageName></packageName>
-					<script>dem.ritualism = {duality = true, costs = {fire = 9, ice = 9}}
+					<script>dem.ritualism = {duality = true, costs = {fire = 9, ice = 9, inversion = 9, hammer = 9, vitality = 9}}
 local ritualism = dem.ritualism
 
 local function validSymbols(symbols)
@@ -1590,6 +2268,10 @@ function ritualism.manaCost(symbols)
   end
   return total
 end
+
+function ritualism.buildDefence(name)
+  if name == 'vitality' then return ritualism.buildTrace({'vitality'}, 'me') end
+end
 </script>
 					<eventHandlerList />
 				</Script>
@@ -1599,12 +2281,143 @@ end
 				<packageName />
 				<script />
 				<eventHandlerList />
+				<Script isActive="yes" isFolder="no">
+					<name>Malignosis Commands</name>
+					<packageName></packageName>
+					<script>dem.malignosis = {}
+local commands = {
+  ouroboros = 'summon ouroboros', armor = 'demon armor', regeneration = 'demon regeneration',
+  soulmask = 'demon soulmask', syphon = 'demon syphon'
+}
+
+function dem.malignosis.buildDefence(name)
+  return commands[name]
+end
+</script>
+					<eventHandlerList />
+				</Script>
+				<Script isActive="yes" isFolder="no">
+					<name>Diabolist defences</name>
+					<packageName></packageName>
+					<script>-- Class registry and maintenance share the same action gate as Hunt.
+dem.diabolist = {defences = {
+  {name = 'ouroboros', skill = 'malignosis', resource = 'prompt'},
+  {name = 'armor', skill = 'malignosis', resource = 'prompt'},
+  {name = 'regeneration', skill = 'malignosis', resource = 'prompt'},
+  {name = 'soulmask', skill = 'malignosis', resource = 'prompt'},
+  {name = 'syphon', skill = 'malignosis', resource = 'prompt'},
+  {name = 'vitality', skill = 'ritualism', resource = 'bal', mana = 9},
+  {name = 'nightfall', skill = 'nightfall', resource = 'eq', mana = 27}
+}}
+dem.defences = {enabled = false, active = {}, reason = 'Disabled.'}
+local defences = dem.defences
+
+function defences.stop(reason)
+  local wasEnabled = defences.enabled
+  defences.enabled = false
+  defences.reason = reason or 'Disabled by user.'
+  -- A pending command still owns its confirmation and recovery after toggling off.
+  if wasEnabled then dem.message('Defence maintenance off: ' .. defences.reason) end
+end
+
+function defences.reset(reason)
+  defences.stop(reason)
+  defences.active = {}
+  dem.cancel('defence-watchdog')
+end
+
+function defences.toggle()
+  if defences.enabled then defences.stop(); return false end
+  if dem.balances.dead then dem.message('Defence maintenance remains off while you are dead.'); return false end
+  defences.enabled = true
+  defences.reason = 'Waiting for character readiness.'
+  dem.message('Defence maintenance on.')
+  dem.schedule()
+  return true
+end
+
+function defences.setActive(name, active)
+  local known = false
+  for _, entry in ipairs(dem.diabolist.defences) do
+    if entry.name == name then known = true; break end
+  end
+  if not known or type(active) ~= 'boolean' then return false end
+  defences.active[name] = active
+  if name == 'ouroboros' and not active then
+    for _, dependent in ipairs({'armor', 'regeneration', 'soulmask', 'syphon'}) do
+      defences.active[dependent] = false
+    end
+  end
+  local action = dem.balances.action
+  if active and action and action.kind == 'defence' and action.defence == name then
+    dem.balances.confirmDefence(action)
+  end
+  dem.schedule()
+  return true
+end
+
+local function finite(n)
+  return type(n) == 'number' and n == n and n ~= math.huge and n ~= -math.huge
+end
+
+function defences.step()
+  if not defences.enabled then return end
+  local b, v = dem.balances, dem.vitals
+  if b.dead then defences.stop('You are dead.'); return end
+  if dem.hunt.enabled then defences.reason = 'Paused while Hunt is on.'; return end
+  if b.action then defences.reason = 'Waiting for the current command confirmation and recovery.'; return end
+  if not finite(v.hp) or v.hp &lt;= 0 or not finite(v.mp) or v.mp &lt; 0
+      or not finite(v.maxmp) or v.maxmp &lt;= 0 or v.prone == nil or v.stunned == nil then
+    defences.reason = 'Waiting for character data.'; return
+  end
+  if v.mp / v.maxmp * 100 &lt;= dem.settings.manaLimit then
+    defences.stop('Mana reached the configured limit.'); return
+  end
+  if not b.bal or not b.eq or v.prone or v.stunned then
+    defences.reason = 'Waiting for balance, equilibrium, standing and unstunned status.'; return
+  end
+  for _, entry in ipairs(dem.diabolist.defences) do
+    if not defences.active[entry.name] then
+      if entry.mana and v.mp &lt; entry.mana then
+        defences.reason = 'Waiting for enough mana for ' .. entry.name .. '.'; return
+      end
+      local skill = dem[entry.skill]
+      local command = skill.buildDefence(entry.name)
+      if not command then defences.stop('Cannot build ' .. entry.name .. '.'); return end
+      local action = {kind = 'defence', defence = entry.name, resource = entry.resource, started = dem.now()}
+      if not b.beginAction(action) then return end
+      defences.reason = 'Waiting for ' .. entry.name .. ' confirmation and recovery.'
+      dem.defer('defence-watchdog', 10, function()
+        if b.action ~= action then return end
+        defences.stop('No confirmed completion for ' .. entry.name .. '; check the game response before retrying.')
+        if dem.hunt.enabled then dem.hunt.stop('The pending defence has not completed.') end
+      end)
+      send(command)
+      return
+    end
+  end
+  defences.reason = 'All listed defences are confirmed active.'
+end
+</script>
+					<eventHandlerList />
+				</Script>
 			</ScriptGroup>
 			<ScriptGroup isActive="yes" isFolder="yes">
 				<name>Nightfall</name>
 				<packageName />
 				<script />
 				<eventHandlerList />
+				<Script isActive="yes" isFolder="no">
+					<name>Nightfall Commands</name>
+					<packageName></packageName>
+					<script>dem.nightfall = {}
+
+function dem.nightfall.buildDefence(name)
+  if name == 'nightfall' then return 'nightfall' end
+end
+</script>
+					<eventHandlerList />
+				</Script>
 			</ScriptGroup>
 		</ScriptGroup>
 		<Script isActive="yes" isFolder="no">
@@ -1613,22 +2426,25 @@ end
 			<script>-- Register only after every System and profession module has been loaded.
 function dem.onPrompt(text)
   dem.cancel('hunt-step')
+  dem.runtime.promptSerial = (dem.runtime.promptSerial or 0) + 1
   if text then dem.balances.parsePrompt(text) end
-  dem.targeting.resolvePending()
-  dem.hunt.step()
+  dem.balances.onPrompt()
+  dem.step()
   dem.balances.endPrompt()
 end
 
-function dem.resetConnection()
+function dem.resetConnection(event)
+  dem.defences.reset('Connection changed; type ddef to enable again.')
   dem.hunt.stop('Connection changed; type hunt to enable again.')
   dem.hunt.lastAction = nil
   dem.hunt.resetTerminalHistory()
   dem.targeting.clear('system')
   dem.balances.reset()
-  dem.room.reset()
+  dem.room.reset(event == 'sysDisconnectionEvent')
 end
 
 function dem.onDeath()
+  dem.defences.reset('You are dead.')
   dem.hunt.stop('You are dead.')
   dem.hunt.lastAction = nil
   dem.hunt.resetTerminalHistory()
@@ -1653,6 +2469,11 @@ end
 
 gmcpHandler('Char.Vitals', dem.balances.onVitals)
 gmcpHandler('Room.Info', dem.room.onInfo)
+gmcpHandler('Room.Players', dem.room.onPlayers)
+gmcpHandler('Room.AddPlayer', dem.room.onAddPlayer)
+gmcpHandler('Room.RemovePlayer', dem.room.onRemovePlayer)
+gmcpHandler('Char.Name', function() dem.room.notify('players') end)
+gmcpHandler('Char.Status', function() dem.room.notify('players') end)
 gmcpHandler('Char.Items.List', dem.room.onList)
 gmcpHandler('Char.Items.Add', dem.room.onAdd)
 gmcpHandler('Char.Items.Remove', dem.room.onRemove)
@@ -1662,10 +2483,13 @@ dem.bind('sysConnectionEvent', dem.resetConnection)
 dem.bind('sysProtocolEnabled', function(_, protocol)
   if protocol == 'GMCP' then dem.room.subscribe() end
 end)
+dem.bind('sysLoadEvent', function() dem.ui.init() end)
 dem.bind('sysExitEvent', function() dem.saveSettings(); dem.shutdown() end)
 dem.bind('sysUninstall', function(_, package)
   if package == 'Demonic' then dem.saveSettings(); dem.shutdown() end
 end)
+
+dem.ui.init()
 
 -- Installation into an already-connected profile may precede the next packet.
 -- Hydrate vitals and room identity, but never trust a cached room item list.

@@ -1,7 +1,7 @@
 -- Room.Info owns identity. Item packets form an ordered, untagged stream:
 -- a room list can refresh the currently reported room, never establish one.
 -- Generations protect local callbacks and submitted target identities.
-dem.room = {items = {}, order = {}, retired = {}, ready = false,
+dem.room = {items = {}, order = {}, retired = {}, ready = false, players = {}, playersReady = false,
   phase = 'unconfirmed', generation = 0, contextId = 0}
 local room = dem.room
 local lastReceivedRoom, refreshError
@@ -27,9 +27,13 @@ local function record(value, previous)
   return result, key
 end
 
-local function changed()
+local function changed(reason)
   if dem.schedule then dem.schedule() end
+  if type(raiseEvent) == 'function' then raiseEvent('dem.roomChanged', reason or 'update') end
 end
+
+-- Also used after Hunt retires an ID without waiting for another GMCP packet.
+function room.notify(reason) changed(reason) end
 
 function room.living(item)
   if type(item) ~= 'table' or not id(item.id) or type(item.name) ~= 'string'
@@ -90,17 +94,20 @@ end
 local function invalidate()
   room.cancelRefresh()
   room.generation = room.generation + 1
-  room.num, room.area = nil, nil
+  room.num, room.area, room.name = nil, nil, nil
   room.items, room.order, room.retired = {}, {}, {}
+  room.players, room.playersReady = {}, false
   room.ready, room.phase = false, 'unconfirmed'
   refreshError = nil
 end
 
-function room.reset()
+function room.reset(disconnected)
   invalidate()
   room.contextId = room.contextId + 1
   lastReceivedRoom = nil
   room.subscribed, room.processingList = false, false
+  room.disconnected = disconnected == true
+  changed('reset')
 end
 
 function room.subscribe()
@@ -184,6 +191,7 @@ function room.onInfo(payload)
   local number = id(payload.num)
   if not number then return end
   lastReceivedRoom = number
+  local newIdentity = number ~= room.num
   if number ~= room.num then
     -- The first identity is a snapshot, so a pending initial selection keeps
     -- its context. Every actual transition starts a different target context.
@@ -197,7 +205,46 @@ function room.onInfo(payload)
   elseif payload.area ~= nil then
     room.area = area(payload.area)
   end
-  changed()
+  if payload.name ~= nil then room.name = area(payload.name) end
+  room.disconnected = false
+  changed(newIdentity and 'identity' or 'update')
+end
+
+local function player(value, shortName)
+  if type(value) == 'string' and type(shortName) == 'string' then
+    value = {name = shortName, fullname = value}
+  end
+  if type(value) ~= 'table' then return nil end
+  local name = dem.validReference(value.name)
+  if not name then return nil end
+  return {name = name, fullname = type(value.fullname) == 'string' and value.fullname or name}, name:lower()
+end
+
+function room.onPlayers(payload)
+  if not room.num or type(payload) ~= 'table' then return end
+  local players = {}
+  for key, value in pairs(payload) do
+    local entry, name = player(value, key)
+    if entry then players[name] = entry end
+  end
+  room.players, room.playersReady = players, true
+  changed('players')
+end
+
+function room.onAddPlayer(payload)
+  if not room.num then return end
+  local entry, name = player(payload)
+  if not entry then return end
+  room.players[name] = entry
+  changed('players')
+end
+
+function room.onRemovePlayer(payload)
+  if not room.num then return end
+  local name = dem.validReference(type(payload) == 'table' and payload.name or payload)
+  if not name then return end
+  room.players[name:lower()] = nil
+  changed('players')
 end
 
 function room.onList(payload)

@@ -71,8 +71,17 @@ Add-Script $system 'Targeting' 'targeting' $true
 Add-Script $system 'Core' 'core' $true
 Add-Script (Get-Group '//ScriptPackage//ScriptGroup[name="Api stuff"]') 'Room Tracking' 'room'
 Add-Script (Get-Group '//ScriptPackage//ScriptGroup[name="Autobasher"]') 'Hunt Controller' 'hunt'
+Add-Script (Get-Group '//ScriptPackage//ScriptGroup[name="GUI"]') 'Room GUI' 'ui'
 Add-Script (Get-Group '//ScriptPackage//ScriptGroup[name="Ritualism"]') 'Ritualism Commands' 'ritualism'
+Add-Script (Get-Group '//ScriptPackage//ScriptGroup[name="Malignosis"]') 'Malignosis Commands' 'malignosis'
+Add-Script (Get-Group '//ScriptPackage//ScriptGroup[name="Malignosis"]') 'Diabolist defences' 'defences'
+Add-Script (Get-Group '//ScriptPackage//ScriptGroup[name="Nightfall"]') 'Nightfall Commands' 'nightfall'
 Add-Script $scriptRoot 'Initialize Demonic' 'bootstrap'
+# Runtime dependencies are ordered explicitly, even after a reordered export.
+[void]$scriptRoot.PrependChild($system)
+[void]$scriptRoot.AppendChild($scriptRoot.SelectSingleNode('Script[name="Initialize Demonic"]'))
+
+Add-Alias (Get-Group '//AliasPackage/AliasGroup[name="Diabolist"]/AliasGroup[name="Ritualism"]') 'Defs' '^ddef$' 'dem.defences.toggle()'
 
 $aliases = Get-Group '//AliasPackage/AliasGroup[name="System"]'
 $targetAliases = $aliases.SelectSingleNode('AliasGroup[name="Targeting"]')
@@ -87,6 +96,10 @@ foreach ($legacyName in @('Target player','Target denizen','Clear target')) {
     Remove-Owned $targetAliases 'Alias' $legacyName
 }
 Add-Alias $targetAliases 'Targeting' '^t (\w+)$' 'dem.targeting.set(matches[2])'
+$guiAliases = Get-Group '//AliasPackage/AliasGroup[name="System"]/AliasGroup[name="GUI"]'
+Add-Alias $guiAliases 'Show room GUI' '^demui show$' 'dem.ui.show()'
+Add-Alias $guiAliases 'Hide room GUI' '^demui hide$' 'dem.ui.hide()'
+Add-Alias $guiAliases 'Reset room GUI' '^demui reset$' 'dem.ui.resetLayout()'
 $huntAliases = Get-Group '//AliasPackage/AliasGroup[name="System"]/AliasGroup[name="Autobasher"]'
 Add-Alias $huntAliases 'Hunt mode' '^hunt$' 'dem.hunt.toggle()'
 Add-Alias $huntAliases 'Hunt add' '^hunt add (.+)$' 'dem.hunt.add(matches[2])'
@@ -107,6 +120,29 @@ $hunting = Get-Group '//TriggerPackage/TriggerGroup[name="System"]/TriggerGroup[
 Add-Trigger $hunting 'Denizen slain' '^The final blow is too much, you have slain (.+)\.$' 'dem.hunt.onKill(matches[2])'
 Add-Trigger $hunting 'Target absent' '^(?:You do not see that individual here\.|Nothing can be seen here by that name\.|Ahh, I am truly sorry, but I do not see anyone by that name here\.|You detect nothing here by that name\.)$' 'dem.hunt.onMissing()'
 Add-Trigger $hunting 'Grace blocks attack' '^You currently walk in divine grace\b' 'dem.hunt.onAttackRejected("Divine grace prevents attacks; renounce grace manually before enabling Hunt.")'
+
+# Class confirmation strings are from the user's exported package.
+$ritualism = Get-Group '//TriggerPackage/TriggerGroup[name="Diabolist"]/TriggerGroup[name="Ritualism"]'
+$ouroboros = Get-Group '//TriggerPackage/TriggerGroup[name="Diabolist"]/TriggerGroup[name="Malignosis"]/TriggerGroup[name="Ouroboros"]'
+$nightfall = Get-Group '//TriggerPackage/TriggerGroup[name="Diabolist"]/TriggerGroup[name="Nightfall"]'
+$classTriggers = @(
+    @($ritualism, 'Vitality activated', 'You sketch the Anae-antarea symbol in the air, and a feeling of anticipation fills the air as a glow surrounds you momentarily.', 'vitality', $true),
+    @($ouroboros, 'Demon regeneration', 'You demand aid from your Ouroboros, and it it surrounds you with a glowing red ring.', 'regeneration', $true),
+    @($ouroboros, 'Demon armor', 'You ask your Ouroboros for its protection, and it summons a thin black protecting sheen over you.', 'armor', $true),
+    @($ouroboros, 'Missing ouroboros', 'With a disimpassioned gesture, you banish your Ouroboros back to the Pit from which it came.', 'ouroboros', $false),
+    @($ouroboros, 'Summoned ouroboros', 'You call out, ordering your Ouroboros to return to serve your will.', 'ouroboros', $true),
+    @($ouroboros, 'Soulmask', 'Your Ouroboros glows faintly, and you feel your presence masked from prying eyes.', 'soulmask', $true),
+    @($ouroboros, 'Syphon ceased', 'Your Ouroboros ceases its disease syphoning.', 'syphon', $false),
+    @($ouroboros, 'Syphoning on', 'You implore your Ouroboros to help its beloved master, and the heat of its power begins to wash over you.', 'syphon', $true),
+    @($nightfall, 'Nightfall defence', 'Concentrating deeply, you call forth an all-encompassing darkness that rapidly surrounds you.', 'nightfall', $true),
+    @($nightfall, 'Nightfall cease', 'The darkness around you dissipates.', 'nightfall', $false)
+)
+foreach ($entry in $classTriggers) {
+    # Exact matching tolerates neither unrelated messages nor prefix/suffix text.
+    $pattern = '^' + [regex]::Escape($entry[2]).Replace('\ ', ' ') + '$'
+    $active = $entry[4].ToString().ToLowerInvariant()
+    Add-Trigger $entry[0] $entry[1] $pattern ('dem.defences.setActive("{0}", {1})' -f $entry[3], $active)
+}
 
 $settings = [Xml.XmlWriterSettings]::new()
 $settings.Indent = $true

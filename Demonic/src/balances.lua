@@ -2,6 +2,7 @@ dem.vitals = {hp = nil, maxhp = nil, mp = nil, maxmp = nil, stunned = nil, prone
 dem.balances = {bal = nil, eq = nil, action = nil, dead = false}
 local balances = dem.balances
 local resourceAuthority = {hp = false, mp = false}
+local readinessSerial = {bal = 0, eq = 0}
 
 local function number(value)
   local result = tonumber(value)
@@ -16,14 +17,19 @@ end
 local function release()
   balances.action = nil
   dem.cancel('attack-watchdog')
+  dem.cancel('defence-watchdog')
 end
 
 local function readiness(kind, ready, explicitRecovery)
   balances[kind] = ready
-  if kind == 'bal' and balances.action then
+  if ready ~= nil then readinessSerial[kind] = readinessSerial[kind] + 1 end
+  if balances.action and kind == (balances.action.resource or 'bal') then
     if ready == false then
       balances.action.lost = true
-    elseif ready == true and (explicitRecovery or balances.action.lost) then release() end
+    elseif ready == true and (explicitRecovery or balances.action.lost) then
+      balances.action.recovered = true
+      if balances.action.kind ~= 'defence' or balances.action.confirmed then release() end
+    end
   end
 end
 
@@ -96,11 +102,31 @@ end
 
 function balances.beginAction(action)
   if type(action) ~= 'table' or balances.action then return false end
-  action.lost = balances.bal == false
+  action.resource = action.resource or 'bal'
+  action.lost = balances[action.resource] == false
+  action.readiness = {bal = readinessSerial.bal, eq = readinessSerial.eq}
   balances.action = action
   -- Local pessimism gates sends; it is not evidence of a server balance cycle.
-  balances.bal = false
+  if action.resource ~= 'prompt' then balances[action.resource] = false end
   return true
+end
+
+function balances.confirmDefence(action)
+  if balances.action ~= action or action.kind ~= 'defence' then return false end
+  if not action.confirmed then
+    action.confirmed = true
+    action.confirmedPrompt = dem.runtime.promptSerial or 0
+  end
+  if action.resource ~= 'prompt' and action.recovered then release() end
+  return true
+end
+
+function balances.onPrompt()
+  local action = balances.action
+  if action and action.kind == 'defence' and action.resource == 'prompt' and action.confirmed
+      and (dem.runtime.promptSerial or 0) > action.confirmedPrompt
+      and readinessSerial.bal > action.readiness.bal and readinessSerial.eq > action.readiness.eq
+      and balances.bal == true and balances.eq == true then release() end
 end
 
 function balances.rejectAction(action)
@@ -148,6 +174,7 @@ function balances.reset()
   release()
   balances.dead = false
   resourceAuthority = {hp = false, mp = false}
+  readinessSerial = {bal = 0, eq = 0}
   balances.bal, balances.eq = nil, nil
   balances.balDuration, balances.eqDuration = nil, nil
   dem.vitals = {hp = nil, maxhp = nil, mp = nil, maxmp = nil, stunned = nil, prone = nil}

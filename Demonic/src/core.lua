@@ -68,11 +68,14 @@ end
 function dem.schedule()
   if not active or dem.runtime.timers['hunt-step'] then return end
   dem.defer('hunt-step', 0, function()
-    if dem.targeting and type(dem.targeting.resolvePending) == 'function' then
-      dem.targeting.resolvePending()
-    end
-    if dem.hunt and type(dem.hunt.step) == 'function' then dem.hunt.step() end
+    dem.step()
   end)
+end
+
+function dem.step()
+  dem.targeting.resolvePending()
+  dem.defences.step()
+  dem.hunt.step()
 end
 
 function dem.joinCommands(commands)
@@ -117,6 +120,8 @@ end
 function dem.shutdown()
   if not active then return end
   active = false
+  if dem.defences then dem.defences.reset('Package stopped.') end
+  if dem.ui and type(dem.ui.shutdown) == 'function' then pcall(dem.ui.shutdown) end
   if dem.hunt then
     if type(dem.hunt.stop) == 'function' then dem.hunt.stop('Package stopped.')
     else dem.hunt.enabled = false end

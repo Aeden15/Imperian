@@ -15,7 +15,9 @@ $scripts = @($package.SelectNodes('//ScriptPackage//Script/script'))
 $sourceFiles = @{
     'Core' = 'core'; 'Targeting' = 'targeting'; 'Balances and Vitals' = 'balances'
     'Room Tracking' = 'room'; 'Hunt Controller' = 'hunt'
+    'Room GUI' = 'ui'
     'Ritualism Commands' = 'ritualism'; 'Initialize Demonic' = 'bootstrap'
+    'Malignosis Commands' = 'malignosis'; 'Diabolist defences' = 'defences'; 'Nightfall Commands' = 'nightfall'
 }
 if ($scripts.Count -ne $sourceFiles.Count) { throw 'Unexpected embedded Script count.' }
 # The export is flat: Package Manager supplies the single Demonic wrapper.
@@ -24,8 +26,8 @@ if ($scripts.Count -ne $sourceFiles.Count) { throw 'Unexpected embedded Script c
 $preserved = $package.Clone()
 $owned = @{
     Script = @($sourceFiles.Keys)
-    Alias = @('Hunt mode','Hunt add','Hunt remove','Hunt list','Hunt status','Hunt limits','Targeting')
-    Trigger = @('Balance loss duration','Equilibrium loss duration','Balance regained','Equilibrium regained','Balance unavailable','Equilibrium unavailable','Prompt readiness','Denizen slain','Target absent','Grace blocks attack')
+    Alias = @('Hunt mode','Hunt add','Hunt remove','Hunt list','Hunt status','Hunt limits','Targeting','Show room GUI','Hide room GUI','Reset room GUI','Defs')
+    Trigger = @('Balance loss duration','Equilibrium loss duration','Balance regained','Equilibrium regained','Balance unavailable','Equilibrium unavailable','Prompt readiness','Denizen slain','Target absent','Grace blocks attack','Vitality activated','Demon regeneration','Demon armor','Missing ouroboros','Summoned ouroboros','Soulmask','Syphon ceased','Syphoning on','Nightfall defence','Nightfall cease')
 }
 foreach ($tag in $owned.Keys) {
     foreach ($node in @($preserved.SelectNodes(('//' + $tag)))) {
@@ -48,8 +50,8 @@ if ($lastScript.LocalName -cne 'Script' -or $lastScript.SelectSingleNode('name')
     throw 'Initialize Demonic must be the final standalone script.'
 }
 $config = Get-Content -LiteralPath (Join-Path $root 'Demonic/config.lua') -Raw
-if ($config -cnotmatch '(?m)^created = "2026-11-07T01:33:06-06:00"\r?$') { throw 'Export creation timestamp was not preserved.' }
-if ($config -cnotmatch '(?m)^mpackage = \[\[Demonic\]\]\r?$' -or $config -cnotmatch '(?m)^version = \[\[0\.1\.7\]\]\r?$' -or $config -cnotmatch '(?s)description = \[\[Shared targeting.+?\]\]') {
+if ($config -cnotmatch '(?m)^created = "2026-11-07T16:29:35-06:00"\r?$') { throw 'Export creation timestamp was not preserved.' }
+if ($config -cnotmatch '(?m)^mpackage = \[\[Demonic\]\]\r?$' -or $config -cnotmatch '(?m)^version = \[\[0\.1\.9\]\]\r?$' -or $config -cnotmatch '(?s)description = \[\[Shared targeting.+?\]\]') {
     throw 'Package version or description is missing.'
 }
 foreach ($name in $sourceFiles.Keys) {
@@ -60,6 +62,20 @@ foreach ($name in $sourceFiles.Keys) {
     }
 }
 $targetFolder = $package.SelectSingleNode('//AliasPackage/AliasGroup[name="System"]/AliasGroup[name="Targeting"]')
+$guiContracts = @{
+    show = @('Show room GUI', '^demui show$', 'dem.ui.show()')
+    hide = @('Hide room GUI', '^demui hide$', 'dem.ui.hide()')
+    reset = @('Reset room GUI', '^demui reset$', 'dem.ui.resetLayout()')
+}
+$guiFolder = $package.SelectSingleNode('//AliasPackage/AliasGroup[name="System"]/AliasGroup[name="GUI"]')
+if (!$guiFolder -or $guiFolder.SelectNodes('Alias').Count -ne 3) { throw 'GUI controls are missing or duplicated.' }
+foreach ($command in $guiContracts.Keys) {
+    $contract = $guiContracts[$command]
+    $nodes = @($guiFolder.SelectNodes(('Alias[name="{0}"]' -f $contract[0])))
+    if ($nodes.Count -ne 1 -or $nodes[0].regex -cne $contract[1] -or $nodes[0].script -cne $contract[2]) {
+        throw ('GUI alias contract failed: ' + $command)
+    }
+}
 if (!$targetFolder) { throw 'Targeting alias folder is missing.' }
 $targetNodes = @($targetFolder.SelectNodes('.//Alias'))
 if ($targetNodes.Count -ne 1) { throw 'Targeting must contain exactly one alias.' }
@@ -188,6 +204,24 @@ try {
         $chunks.Add(('assert((loadstring or load)([====[{0}]====], {1}))()' -f $script.InnerText, ('"' + $label + '"')))
     }
     $chunks.Add('end')
+    $defsAlias = $package.SelectSingleNode('//AliasPackage//Alias[name="Defs"]')
+    $huntAlias = $package.SelectSingleNode('//AliasPackage//Alias[name="Hunt mode"]')
+    $prompt = $package.SelectSingleNode('//TriggerPackage//Trigger[name="Prompt readiness"]')
+    foreach ($entry in @(@('DEMONIC_TEST_DEFS_ALIAS',$defsAlias), @('DEMONIC_TEST_HUNT_ALIAS',$huntAlias), @('DEMONIC_TEST_PROMPT',$prompt))) {
+        if (!$entry[1]) { throw ('Missing entry for ' + $entry[0]) }
+        $chunks.Add(('function {0}() line=""; matches={{}}; return assert((loadstring or load)([====[{1}]====],"actual alias/trigger"))() end' -f $entry[0],$entry[1].script))
+    }
+    $chunks.Add('function DEMONIC_TEST_CLASS_TRIGGER(name)')
+    foreach ($node in $package.SelectNodes('//TriggerPackage/TriggerGroup[name="Diabolist"]//Trigger')) {
+        $chunks.Add(('if name == [====[{0}]====] then return assert((loadstring or load)([====[{1}]====],"class trigger"))() end' -f $node.name,$node.script))
+    }
+    $chunks.Add('error("Unknown class trigger: " .. tostring(name)) end')
+    $chunks.Add('function DEMONIC_TEST_GUI_ALIAS(command)')
+    foreach ($command in $guiContracts.Keys) {
+        $node = $guiFolder.SelectSingleNode(('Alias[name="{0}"]' -f $guiContracts[$command][0]))
+        $chunks.Add(('if command == "{0}" then return assert((loadstring or load)([====[{1}]====], "GUI alias"))() end' -f $command, $node.script))
+    }
+    $chunks.Add('error("Unknown GUI command") end')
     $chunks.Add('function DEMONIC_TEST_TARGET_ALIAS(ref)')
     $chunks.Add('matches = {"t " .. ref, ref}')
     $chunks.Add(('return assert((loadstring or load)([====[{0}]====], "Targeting alias"))()' -f $targetAlias.script))
@@ -223,6 +257,8 @@ try {
     $chunks.Add('end')
     $testFile = (Join-Path $PSScriptRoot 'run.lua').Replace('\','/')
     $chunks.Add(('dofile("{0}")' -f $testFile))
+    $guiTests = (Join-Path $PSScriptRoot 'gui.lua').Replace('\','/')
+    $chunks.Add(('dofile("{0}")' -f $guiTests))
     [IO.File]::WriteAllText($temp, ($chunks -join "`n"), [Text.UTF8Encoding]::new($false))
     & lua $temp
     if ($LASTEXITCODE -ne 0) { throw 'Demonic behavioral tests failed.' }
@@ -238,6 +274,7 @@ try {
     $balanceFolder = $package.SelectSingleNode('//TriggerPackage/TriggerGroup[name="System"]/TriggerGroup[name="Balances"]')
     if (@($balanceFolder.SelectNodes('Trigger')).Count -lt 5) { throw 'System balance triggers are missing.' }
     Write-Output 'XML structure, source synchronization, alias/trigger contracts, and all Lua syntax: PASS'
+    & (Join-Path $PSScriptRoot 'check-export.ps1')
 } finally {
     if (Test-Path -LiteralPath $temp) { Remove-Item -LiteralPath $temp }
 }

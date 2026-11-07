@@ -1,4 +1,4 @@
-dem.ritualism = {duality = true, costs = {fire = 9, ice = 9}}
+dem.ritualism = {duality = true, costs = {fire = 9, ice = 9, inversion = 9, hammer = 9, vitality = 9}}
 local ritualism = dem.ritualism
 
 local function validSymbols(symbols)
@@ -31,4 +31,8 @@ function ritualism.manaCost(symbols)
     total = total + cost
   end
   return total
+end
+
+function ritualism.buildDefence(name)
+  if name == 'vitality' then return ritualism.buildTrace({'vitality'}, 'me') end
 end
