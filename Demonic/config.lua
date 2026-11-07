@@ -9,12 +9,15 @@ References stay one word: `fido`, `fido1234`, or `1234`. `t clear` stops and cle
 Hunt resolves denizens to their numeric IDs for attacks while keeping the shared reference unchanged.
 `hunt status` shows a short state and reason; `hunt status debug` shows full diagnostics.
 Movement contexts survive prompts and current replies; later movement, replacement, clear, or reconnect cancels pending targeting.
-Tracked walk acknowledgements survive prompts. Cached GMCP exits correlate received room info only; identity still needs confirmation.
+Flexible walk prefixes confirm supported directions. Native room headings paired with newly received GMCP identity
+can recover a completed movement prefix; later movement still blocks. Cached exits never permanently veto proof.
+Death stops hunting and clears movement, pending targets, attacks, and readiness once; revival never starts hunting.
+GMCP health and mana authority begins on any explicit field and persists across prompts until connection reset.
 
 Uses learned Duality for a single `trace fire ice <target>` command. The shared command separator is `&&`.
 Default safety stops: 30% health and 10% mana; `hunt limits <hp%> <mana%>` changes them.
 Healing is left to Imperian autocuring. GMCP must be enabled. No movement or auto-updating.
 
 Source and usage: https://github.com/Aeden15/Imperian]]
-version = [[0.1.4]]
+version = [[0.1.5]]
 created = "2026-11-07T01:33:06-06:00"

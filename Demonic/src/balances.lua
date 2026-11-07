@@ -1,6 +1,7 @@
 dem.vitals = {hp = nil, maxhp = nil, mp = nil, maxmp = nil, stunned = nil, prone = nil}
-dem.balances = {bal = nil, eq = nil, action = nil}
+dem.balances = {bal = nil, eq = nil, action = nil, dead = false}
 local balances = dem.balances
+local resourceAuthority = {hp = false, mp = false}
 
 local function number(value)
   local result = tonumber(value)
@@ -25,21 +26,37 @@ local function readiness(kind, ready, explicitRecovery)
   end
 end
 
-local function stopIfDead(dead)
+local function stopIfDead(dead, hpUpdated)
   if dead == true or (dem.vitals.hp and dem.vitals.hp <= 0) then
-    if dem.hunt and type(dem.hunt.stop) == 'function' then dem.hunt.stop('You are dead.')
+    if not balances.dead then
+      balances.dead = true
+      if type(dem.onDeath) == 'function' then dem.onDeath()
+      elseif dem.hunt then dem.hunt.stop('You are dead.') end
+    elseif dem.hunt and type(dem.hunt.stop) == 'function' and dem.hunt.enabled then
+      dem.hunt.stop('You are dead.')
     elseif dem.hunt then dem.hunt.enabled = false end
+  elseif dead == false or (hpUpdated and dem.vitals.hp and dem.vitals.hp > 0) then
+    balances.dead = false
   end
 end
 
 function balances.onVitals(payload)
   if type(payload) ~= 'table' then return end
-  for _, field in ipairs({'hp', 'maxhp', 'mp', 'maxmp'}) do
-    if payload[field] ~= nil then
-      local value = number(payload[field])
-      dem.vitals[field] = value
-      -- Invalid explicit data invalidates knowledge; it does not override text fallback.
-      if value ~= nil then dem.runtime.gmcpFields[field] = true end
+  for _, pair in ipairs({{'hp', 'maxhp'}, {'mp', 'maxmp'}}) do
+    local current, maximum = pair[1], pair[2]
+    if payload[current] ~= nil or payload[maximum] ~= nil then
+      if not resourceAuthority[current] then
+        -- The compact text prompt may use different units. Never combine its
+        -- current value or maximum with a newly adopted GMCP resource pair.
+        dem.vitals[current], dem.vitals[maximum] = nil, nil
+        resourceAuthority[current] = true
+      end
+      for _, field in ipairs(pair) do
+        if payload[field] ~= nil then
+          dem.vitals[field] = number(payload[field])
+          dem.runtime.gmcpFields[field] = true
+        end
+      end
     end
   end
   for _, field in ipairs({'stunned', 'prone'}) do
@@ -56,7 +73,7 @@ function balances.onVitals(payload)
       if value ~= nil then dem.runtime.gmcpFields[kind] = true end
     end
   end
-  stopIfDead(boolean(payload.dead))
+  stopIfDead(boolean(payload.dead), payload.hp ~= nil)
   dem.schedule()
 end
 
@@ -88,8 +105,13 @@ end
 function balances.parsePrompt(text)
   if type(text) ~= 'string' then return end
   local fields = dem.runtime.gmcpFields
+  local hpUpdated = false
   local function vitals(field, value)
-    if value and not fields[field] then dem.vitals[field] = number(value) end
+    local resource = (field == 'hp' or field == 'maxhp') and 'hp' or 'mp'
+    if value and not resourceAuthority[resource] and not fields[field] then
+      dem.vitals[field] = number(value)
+      if field == 'hp' then hpUpdated = true end
+    end
   end
   local hp, mp = text:match('Health:%s*(%d+)%s+Mana:%s*(%d+)')
   vitals('hp', hp); vitals('mp', mp)
@@ -98,14 +120,24 @@ function balances.parsePrompt(text)
   local eq, bal = text:match('%(([e%-])([b%-])%)')
   if eq and not fields.eq then readiness('eq', eq == 'e') end
   if bal and not fields.bal then readiness('bal', bal == 'b') end
-  stopIfDead()
+  stopIfDead(nil, hpUpdated)
   dem.schedule()
 end
 
 function balances.endPrompt() dem.runtime.gmcpFields = {} end
 
+function balances.clearForDeath()
+  release()
+  balances.dead = true
+  balances.bal, balances.eq = nil, nil
+  balances.balDuration, balances.eqDuration = nil, nil
+  dem.vitals.prone, dem.vitals.stunned = nil, nil
+end
+
 function balances.reset()
   release()
+  balances.dead = false
+  resourceAuthority = {hp = false, mp = false}
   balances.bal, balances.eq = nil, nil
   balances.balDuration, balances.eqDuration = nil, nil
   dem.vitals = {hp = nil, maxhp = nil, mp = nil, maxmp = nil, stunned = nil, prone = nil}

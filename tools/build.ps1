@@ -104,7 +104,8 @@ Add-Trigger $balances 'Balance unavailable' '^You must regain (?:your )?balance 
 Add-Trigger $balances 'Equilibrium unavailable' '^You must regain (?:your )?equilibrium first\.$' 'dem.balances.taken("eq")'
 Add-Trigger $balances 'Prompt readiness' '' 'dem.onPrompt(line)' 7
 $hunting = Get-Group '//TriggerPackage/TriggerGroup[name="System"]/TriggerGroup[name="Autobasher"]'
-Add-Trigger $hunting 'Room entered' '^You walk (\w+)\.$' 'dem.room.onEntered(matches[2])'
+Add-Trigger $hunting 'Room entered' '^You\s+walk\s+([A-Za-z]+)(?=\s|[.,!?;:]|$)' 'dem.room.onEntered(matches[2])'
+Add-Trigger $hunting 'Room heading' '^(.+?)\.\s+(\d+)(?:\s+\([^)]*\))?\.?$' 'dem.room.onHeading(matches[2], matches[3])'
 Add-Trigger $hunting 'Denizen slain' '^The final blow is too much, you have slain (.+)\.$' 'dem.hunt.onKill(matches[2])'
 Add-Trigger $hunting 'Target absent' '^(?:You do not see that individual here\.|Nothing can be seen here by that name\.|Ahh, I am truly sorry, but I do not see anyone by that name here\.|You detect nothing here by that name\.)$' 'dem.hunt.onMissing()'
 

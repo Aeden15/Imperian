@@ -901,6 +901,191 @@ test('connection changes cancel pending classification before later room data', 
   room(); roster(); tick(0); eq(dem.target,nil); eq(dem.targeting.kind,nil); assert(not dem.hunt.enabled)
 end)
 
+local function conflictStart()
+  reset(); vitals()
+  event('Room.Info',{num=101,name='Old chamber',area='Test grounds',exits={n=102}})
+  roster({}); dem.onPrompt(); dem.hunt.add('ant'); dem.hunt.toggle(); roster({}); tick(0)
+end
+local function unexpectedRoom(number, name)
+  event('Room.Info',{num=number or 13359,name=name or 'A quiet courtyard',area='Test grounds',exits={}})
+end
+
+test('native heading and fresh info recover a stale destination without granting roster readiness', function()
+  conflictStart(); send('n'); DEMONIC_TEST_ENTERED('north'); unexpectedRoom()
+  roster({{id='8',name='a warrior ant',attrib='m'}}); tick(0); eq(#sent,0); gmcpSent={}
+  DEMONIC_TEST_HEADING('A quiet courtyard','13359')
+  eq(dem.room.num,'13359'); assert(not dem.room.ready); eq(queryCount(),1)
+  roster({{id='9',name='a warrior ant',attrib='m'}}); tick(0)
+  eq(sent[1],'trace fire ice 9'); eq(dem.room.diagnostics().pendingMoves,0)
+end)
+
+test('fresh info before its walk can later pair with the native heading', function()
+  conflictStart(); send('n'); unexpectedRoom(); DEMONIC_TEST_ENTERED('north')
+  dem.room.onHeading('A quiet courtyard','13359'); roster(); tick(0)
+  eq(dem.room.num,'13359'); eq(sent[1],'trace fire ice 1234')
+end)
+
+test('a captured heading can await later info across a prompt', function()
+  conflictStart(); send('n'); DEMONIC_TEST_ENTERED('north'); dem.room.onHeading('A quiet courtyard','13359')
+  dem.onPrompt(); unexpectedRoom(); roster(); tick(0)
+  eq(dem.room.num,'13359'); eq(sent[1],'trace fire ice 1234')
+end)
+
+test('a prompt closes an uncaptured heading frame so a later look cannot recover it', function()
+  conflictStart(); send('n'); DEMONIC_TEST_ENTERED('north'); dem.onPrompt(); unexpectedRoom()
+  dem.room.onHeading('A quiet courtyard','13359'); roster(); tick(0)
+  eq(dem.room.num,nil); eq(#sent,0)
+end)
+
+test('a look heading without a successful walk cannot override stale movement expectations', function()
+  conflictStart(); send('n'); unexpectedRoom(); dem.room.onHeading('A quiet courtyard','13359'); roster(); tick(0)
+  eq(dem.room.num,nil); eq(#sent,0)
+end)
+
+test('cached info from before movement cannot corroborate its later heading', function()
+  conflictStart(); send('n'); DEMONIC_TEST_ENTERED('north')
+  dem.room.onHeading('Old chamber','101'); roster(); tick(0)
+  eq(dem.room.num,nil); eq(#sent,0)
+end)
+
+test('native room proof rejects a wrong name number and invalid identifier', function()
+  for _,proof in ipairs({{'Other courtyard','13359'},{'A quiet courtyard','13360'},{'A quiet courtyard','0'},{'A quiet courtyard','bad'}}) do
+    conflictStart(); send('n'); DEMONIC_TEST_ENTERED('north'); unexpectedRoom()
+    dem.room.onHeading(proof[1],proof[2]); roster(); tick(0); eq(dem.room.num,nil); eq(#sent,0)
+  end
+end)
+
+test('recovery preserves a later queued movement barrier', function()
+  conflictStart(); send('n&&e'); DEMONIC_TEST_ENTERED('north'); unexpectedRoom()
+  dem.room.onHeading('A quiet courtyard','13359'); roster(); tick(0); eq(#sent,0); eq(dem.room.num,nil)
+  DEMONIC_TEST_ENTERED('east'); unexpectedRoom(13360,'A long avenue')
+  dem.room.onHeading('A long avenue','13360'); roster(); tick(0)
+  eq(dem.room.num,'13360'); eq(sent[1],'trace fire ice 1234')
+end)
+
+test('fresh info for a later queued walk survives replacement of the preceding heading frame', function()
+  conflictStart(); send('n&&e'); DEMONIC_TEST_ENTERED('north')
+  event('Room.Info',{num=13359,name='A quiet courtyard',area='Test grounds',exits={e=13360}})
+  dem.room.onHeading('A quiet courtyard','13359'); roster({}); tick(0); eq(#sent,0)
+  unexpectedRoom(13361,'A long avenue'); DEMONIC_TEST_ENTERED('east')
+  dem.room.onHeading('A long avenue','13361'); roster(); tick(0)
+  eq(dem.room.num,'13361'); eq(sent[1],'trace fire ice 1234')
+end)
+
+test('recovery never discards an older unaccounted movement', function()
+  conflictStart(); send('n'); send('e'); DEMONIC_TEST_ENTERED('east'); unexpectedRoom()
+  dem.room.onHeading('A quiet courtyard','13359'); roster(); tick(0)
+  eq(dem.room.num,nil); eq(#sent,0)
+end)
+
+test('later movement invalidates a prior captured heading awaiting info', function()
+  conflictStart(); send('n'); DEMONIC_TEST_ENTERED('north'); dem.room.onHeading('A quiet courtyard','13359')
+  send('e'); unexpectedRoom(); roster(); tick(0); eq(dem.room.num,nil); eq(#sent,0)
+end)
+
+test('normal accepted room contents survive native heading corroboration without another request', function()
+  conflictStart(); send('n'); DEMONIC_TEST_ENTERED('north'); room('Test grounds',102); roster({}); tick(0)
+  gmcpSent={}; dem.room.onHeading('A room','102'); dem.room.onHeading('A room','102'); tick(0.3)
+  assert(dem.room.ready); eq(queryCount(),0); eq(commandCount('ih'),0)
+end)
+
+test('heading recovery keeps one fallback budget and ignores duplicate proof', function()
+  conflictStart(); send('n'); DEMONIC_TEST_ENTERED('north'); tick(0.25); eq(commandCount('ih'),1)
+  unexpectedRoom(); dem.room.onHeading('A quiet courtyard','13359'); gmcpSent={}
+  dem.room.onHeading('A quiet courtyard','13359'); tick(0.4)
+  eq(commandCount('ih'),1); eq(queryCount(),0)
+end)
+
+test('native recovery is independent of mapper room existence', function()
+  conflictStart(); getRoomName=function() error('mapper lookup must not run') end
+  roomExists=function() return false end
+  send('n'); DEMONIC_TEST_ENTERED('north'); unexpectedRoom(); dem.room.onHeading('A quiet courtyard','13359')
+  roster(); tick(0); eq(sent[1],'trace fire ice 1234')
+  getRoomName=nil; roomExists=nil
+end)
+
+for _,order in ipairs({'heading-first','info-first'}) do
+  test('unknown queued path proof recovers with '..order, function()
+    reset(); setup(); dem.hunt.toggle(); roster({}); tick(0); send('n&&e')
+    DEMONIC_TEST_ENTERED('north'); DEMONIC_TEST_ENTERED('east')
+    local function info() event('Room.Info',{num=13359,name='A quiet courtyard',area='Ant colony'}) end
+    if order=='heading-first' then dem.room.onHeading('A quiet courtyard','13359'); info()
+    else info(); dem.room.onHeading('A quiet courtyard','13359') end
+    roster({{id='9',name='a warrior ant',attrib='m'}}); tick(0)
+    eq(dem.room.num,'13359'); eq(dem.room.diagnostics().pendingMoves,0); eq(sent[1],'trace fire ice 9')
+  end)
+  for _,kind in ipairs({'id','name'}) do
+    test('normal identity cannot bypass native heading '..kind..' disagreement with '..order, function()
+      conflictStart(); send('n'); DEMONIC_TEST_ENTERED('north')
+      local headingId=kind=='id' and '13359' or '102'
+      local function info() unexpectedRoom(102,'Wrong chamber'); roster({{id='8',name='a warrior ant',attrib='m'}}) end
+      if order=='heading-first' then dem.room.onHeading('A quiet courtyard',headingId); info()
+      else info(); dem.room.onHeading('A quiet courtyard',headingId) end
+      tick(0); eq(#sent,0); eq(dem.room.num,nil); assert(not dem.room.ready)
+      unexpectedRoom(tonumber(headingId),'A quiet courtyard'); roster({{id='9',name='a warrior ant',attrib='m'}}); tick(0)
+      eq(dem.room.num,headingId); eq(sent[1],'trace fire ice 9')
+    end)
+  end
+end
+
+test('scaled short prompts cannot overwrite adopted GMCP resource pairs', function()
+  reset(); start(); local action=dem.balances.action
+  dem.onPrompt('Health:363 Mana:342 (eb)'); dem.onPrompt('Health:363 Mana:342 (eb)')
+  eq(dem.vitals.hp,3998); eq(dem.vitals.mp,4459); assert(dem.hunt.enabled); eq(dem.balances.action,action)
+end)
+
+test('text zero and conflicting full prompts cannot manufacture death after GMCP adoption', function()
+  reset(); start(); local generation=dem.room.generation
+  dem.onPrompt('Health:0 Mana:0 (eb)'); dem.onPrompt('H:0/363 M:0/433 (eb)')
+  eq(dem.vitals.hp,3998); eq(dem.vitals.maxhp,3998); assert(dem.hunt.enabled); eq(dem.room.generation,generation)
+end)
+
+test('first partial GMCP adoption invalidates a text derived resource partner', function()
+  reset(); dem.onPrompt('H:312/363 M:331/433 (eb)')
+  eq(dem.vitals.hp,312); eq(dem.vitals.maxhp,363)
+  event('Char.Vitals',{maxhp='3998'}); eq(dem.vitals.hp,nil); eq(dem.vitals.maxhp,3998)
+  dem.onPrompt('Health:363 Mana:400 (eb)'); eq(dem.vitals.hp,nil); eq(dem.vitals.mp,400)
+  event('Char.Vitals',{hp='3998',mp='4567'}); eq(dem.vitals.hp,3998); eq(dem.vitals.maxmp,nil)
+  event('Char.Vitals',{maxmp='4772'}); dem.onPrompt('H:1/1 M:2/2 (eb)')
+  eq(dem.vitals.hp,3998); eq(dem.vitals.maxhp,3998); eq(dem.vitals.mp,4567); eq(dem.vitals.maxmp,4772)
+end)
+
+test('malformed GMCP adopts authority and text cannot repair unknown resource values', function()
+  reset(); dem.onPrompt('H:312/363 M:331/433 (eb)'); event('Char.Vitals',{hp='bad'})
+  dem.onPrompt('H:363/363 M:433/433 (eb)'); eq(dem.vitals.hp,nil); eq(dem.vitals.maxhp,nil)
+  event('Char.Vitals',{hp='3998',maxhp='3998'}); dem.onPrompt('Health:1 Mana:433 (eb)')
+  eq(dem.vitals.hp,3998); eq(dem.vitals.maxhp,3998)
+end)
+
+test('connection reset clears resource authority and restores text only fallback', function()
+  reset(); vitals(); raiseEvent('sysDisconnectionEvent'); dem.onPrompt('H:312/363 M:331/433 (eb)')
+  eq(dem.vitals.hp,312); eq(dem.vitals.maxhp,363); eq(dem.vitals.mp,331); eq(dem.vitals.maxmp,433)
+end)
+
+test('death clears stale movement and revival accepts room 13359 without enabling hunt', function()
+  reset(); start(); send('n'); DEMONIC_TEST_ENTERED('north'); DEMONIC_TEST_TARGET_ALIAS('ant')
+  vitals({hp='0'}); eq(dem.balances.action,nil); eq(dem.target,nil); eq(dem.room.diagnostics().pendingMoves,0)
+  eq(dem.balances.bal,nil); eq(dem.balances.eq,nil); assert(not dem.hunt.enabled)
+  vitals(); room('Revival courtyard',13359); roster(); tick(0)
+  eq(dem.room.num,'13359'); assert(dem.room.ready); assert(not dem.hunt.enabled); eq(#sent,1)
+end)
+
+test('death cleanup runs once and preserves resource authority until fresh revival data', function()
+  reset(); start(); vitals({hp='0'}); local generation=dem.room.generation
+  vitals({hp='0'}); eq(dem.room.generation,generation)
+  dem.onPrompt('Health:363 Mana:433 (eb)'); eq(dem.vitals.hp,0); assert(dem.balances.dead); assert(not dem.hunt.enabled)
+  event('Char.Vitals',{bal='1',eq='1'}); assert(dem.balances.dead)
+  vitals(); assert(not dem.balances.dead); assert(not dem.hunt.enabled)
+end)
+
+test('an explicit death signal remains latched across unrelated partial vital packets', function()
+  reset(); start(); event('Char.Vitals',{dead='1'})
+  local generation=dem.room.generation; assert(dem.balances.dead)
+  event('Char.Vitals',{bal='1'}); eq(dem.room.generation,generation); assert(dem.balances.dead)
+  assert(not dem.hunt.toggle()); assert(not dem.hunt.enabled)
+  event('Char.Vitals',{dead='0',hp='3998'}); assert(not dem.balances.dead); assert(not dem.hunt.enabled)
+end)
+
 for _, t in ipairs(tests) do
   local ok, err = pcall(t[2])
   if ok then passed=passed+1; print('PASS '..t[1])

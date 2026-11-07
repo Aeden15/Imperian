@@ -10,6 +10,10 @@ local lastReceivedRoom, rejectedReason
 -- Text and Room.Info acknowledge the same arrival in either order. Only
 -- Room.Info consumes queued movement or supplies an identity.
 local arrivals, currentArrival, awaitingArrival = {}, nil, false
+-- A native heading is useful only in the output frame opened by successful
+-- walk text. Keep fresh packets separately from accepted identity so a stale
+-- exit prediction cannot discard the packet needed to corroborate that frame.
+local headingFrame, freshInfo, recoveryReason
 local timerKeys = {'room-initial', 'room-retry', 'room-fallback', 'room-timeout'}
 
 local function id(value)
@@ -30,6 +34,13 @@ local function record(value, previous)
   for k, v in pairs(value) do result[k] = v end
   result.id = key
   return result, key
+end
+
+local function roomName(value)
+  if type(value) ~= 'string' then return nil end
+  local name = dem.norm(value):gsub('%.$', '')
+  name = dem.trim(name)
+  return name ~= '' and name or nil
 end
 
 local function changed()
@@ -105,6 +116,7 @@ function room.reset()
   arrivals, currentArrival, awaitingArrival = {}, nil, false
   nextContext, room.contextId, exitsByRoom, movementOrigin = 0, 0, {}, nil
   lastReceivedRoom, rejectedReason = nil, nil
+  headingFrame, freshInfo, recoveryReason = nil, nil, nil
   room.subscribed, room.processingList = false, false
 end
 
@@ -201,9 +213,17 @@ end
 function room.diagnostics()
   expectedPath()
   local latest = arrivals[#arrivals]
+  local blocking
+  for _, arrival in ipairs(arrivals) do
+    if not arrival.info then blocking = arrival; break end
+  end
   return {contextId = room.contextId, pendingMoves = pendingMoves,
     expectedDestination = latest and latest.expected,
-    lastReceivedRoom = lastReceivedRoom, rejectedReason = rejectedReason}
+    lastReceivedRoom = lastReceivedRoom, rejectedReason = rejectedReason,
+    blockingContext = blocking and blocking.contextId,
+    blockingDirection = blocking and blocking.direction,
+    blockingExpected = blocking and blocking.expected,
+    recoveryReason = recoveryReason}
 end
 
 function room.onMovement(command)
@@ -222,6 +242,7 @@ function room.onMovement(command)
     first = boundary + #separator
   end
   if #moves == 0 then return end
+  headingFrame, freshInfo, recoveryReason = nil, nil, nil
   if pendingMoves == 0 then
     if room.num then lastIdentity = {num = room.num, area = room.area} end
     movementOrigin = lastIdentity and lastIdentity.num
@@ -263,6 +284,86 @@ local function confirmed(identity, arrival)
   changed()
 end
 
+local function headingConflicts(arrival, identity)
+  local frame = headingFrame
+  return frame and not frame.closed and frame.headingSeen and frame.arrival == arrival
+    and arrival.generation == room.generation and frame.name and frame.num
+    and (frame.name ~= identity.name or frame.num ~= identity.num)
+end
+
+local function blockHeadingConflict(arrival)
+  -- A normal fast-path identity can be contradicted by its following native
+  -- heading. Roll back that acknowledgement, never the submitted attack.
+  if arrival.info then
+    arrival.info = false
+    if arrival.hinted then pendingMoves = pendingMoves + 1 end
+  end
+  arrival.identity = nil
+  room.num, room.area, room.ready, room.phase = nil, nil, false, 'unconfirmed'
+  room.items, room.order, room.retired = {}, {}, {}
+  rejectedReason = 'Native heading conflicts with Room.Info.'
+  recoveryReason = 'Waiting for Room.Info matching the captured native heading.'
+  if hunting() or (dem.targeting and dem.targeting.kind == 'pending') then
+    room.request('Native heading and Room.Info disagree')
+  end
+  changed()
+end
+
+local function recoverHeading()
+  local frame, packet = headingFrame, freshInfo
+  if not frame or frame.closed or not frame.headingSeen then return false end
+  local arrival = frame.arrival
+  -- The regular Info-first path may already own a fresh roster. Its following
+  -- heading must not retire that roster or spend another recovery budget.
+  if arrival.info then return false end
+  if arrival.generation ~= room.generation then return false end
+  if not packet or not frame.name or not frame.num
+      or frame.name ~= packet.name or frame.num ~= packet.identity.num then
+    recoveryReason = 'Waiting for matching fresh Room.Info and native heading.'
+    return false
+  end
+  local frameIndex
+  for i, candidate in ipairs(arrivals) do
+    if candidate == arrival then frameIndex = i; break end
+    if not candidate.info and not candidate.entered then
+      recoveryReason = 'An older movement has no successful entry or Room.Info.'
+      return false
+    end
+  end
+  if not frameIndex then return false end
+  -- Proof accounts only for the prefix through this frame. A later queued
+  -- command retains the identity barrier even if this destination is known.
+  for i = 1, frameIndex do
+    local candidate = arrivals[i]
+    if not candidate.info then
+      candidate.info = true
+      if candidate.hinted then pendingMoves = pendingMoves - 1 end
+    end
+  end
+  local later
+  for i = frameIndex + 1, #arrivals do
+    if not arrivals[i].info then later = true; break end
+  end
+  local identity = packet.identity
+  arrival.identity, lastIdentity = identity, identity
+  frame.closed = true
+  rejectedReason, recoveryReason = nil, 'Native heading and fresh Room.Info confirmed the arrival.'
+  room.items, room.order, room.retired = {}, {}, {}
+  room.num, room.area, room.ready = nil, nil, false
+  local previous = room.refresh
+  confirmed(not later and pendingMoves == 0 and identity or nil, arrival)
+  -- Keep the arrival's existing retry, IH and timeout deadlines. One query is
+  -- needed after proof because lists received before identity were discarded.
+  local refresh = room.refresh
+  if refresh and refresh == previous and refresh.id == room.generation then
+    refresh.attempts = refresh.attempts + 1
+    if type(sendGMCP) == 'function' then sendGMCP('Char.Items.Room ""') end
+  elseif not refresh then
+    room.request('Native heading recovery')
+  end
+  return true
+end
+
 function room.onEntered(value)
   local heading = direction(value)
   if not heading then return end
@@ -282,7 +383,25 @@ function room.onEntered(value)
     arrivals[#arrivals + 1] = arrival
   end
   arrival.entered, arrival.direction = true, heading
+  -- Every walk replaces the preceding heading. Tracked walks may still pair
+  -- with Info received since this outgoing batch began, including a packet
+  -- for the next queued walk delivered before its text. onMovement clears
+  -- those packets for a later batch; a new unhinted arrival clears them here.
+  if not arrival.hinted and not arrival.info then freshInfo = nil end
+  headingFrame = {arrival = arrival}
+  recoveryReason = not arrival.info and 'Waiting for the native heading and fresh Room.Info.' or nil
   confirmed(nil, arrival)
+end
+
+function room.onHeading(name, number)
+  local frame = headingFrame
+  if not frame or frame.closed or frame.headingSeen then return end
+  frame.headingSeen, frame.name, frame.num = true, roomName(name), id(number)
+  local arrival = frame.arrival
+  if arrival.identity and headingConflicts(arrival, arrival.identity) then
+    blockHeadingConflict(arrival)
+  end
+  recoverHeading()
 end
 
 function room.onWrongDir(payload)
@@ -294,6 +413,7 @@ function room.onWrongDir(payload)
         and arrival.direction == heading then failed = i; break end
   end
   if not failed then return end
+  headingFrame, freshInfo, recoveryReason = nil, nil, nil
   table.remove(arrivals, failed)
   pendingMoves = pendingMoves - 1
   rejectedReason = nil
@@ -325,8 +445,11 @@ function room.onInfo(payload)
   if type(payload) ~= 'table' then return end
   local number = id(payload.num)
   if not number then return end
-  local identity = {num = number, area = area(payload.area)}
+  local identity = {num = number, area = area(payload.area), name = roomName(payload.name)}
   lastReceivedRoom = number
+  if pendingMoves > 0 or headingFrame then
+    freshInfo = {identity = identity, name = roomName(payload.name)}
+  end
   if type(payload.exits) == 'table' then
     local exits, ambiguous = {}, {}
     for heading, destination in pairs(payload.exits) do
@@ -342,6 +465,9 @@ function room.onInfo(payload)
     exitsByRoom[number] = exits
   end
   expectedPath()
+  -- Complete current-frame proof before an ordinary ordered match can assign
+  -- this packet to an older arrival and return with the current one pending.
+  if recoverHeading() then return end
   local arrival, arrivalIndex, firstIndex
   if pendingMoves > 0 then
     for i, candidate in ipairs(arrivals) do
@@ -371,6 +497,7 @@ function room.onInfo(payload)
       and not (arrival and arrival.entered) then
     if payload.area ~= nil then lastIdentity.area = identity.area end
     rejectedReason = 'Repeated identity without a confirmed return path.'
+    if recoverHeading() then return end
     changed()
     return
   end
@@ -379,10 +506,12 @@ function room.onInfo(payload)
       arrival, arrivalIndex = arrivals[firstIndex], firstIndex
       if arrival.expected and arrival.expected ~= number then
         rejectedReason = 'Room.Info does not match the expected movement destination.'
+        if recoverHeading() then return end
         changed()
         return
       end
     end
+    if headingConflicts(arrival, identity) then blockHeadingConflict(arrival); return end
     for i = firstIndex, arrivalIndex do
       local candidate = arrivals[i]
       if not candidate.info then
@@ -392,7 +521,7 @@ function room.onInfo(payload)
     end
     arrival.identity = identity
     lastIdentity = identity
-    rejectedReason = nil
+    rejectedReason, recoveryReason = nil, nil
     if pendingMoves == 0 then
       confirmed(identity, arrival)
     else
@@ -413,8 +542,9 @@ function room.onInfo(payload)
       -- No queued command needs older arrival acknowledgements now.
       arrivals = {arrival}
     end
+    if headingConflicts(arrival, identity) then blockHeadingConflict(arrival); return end
     arrival.info, arrival.identity, lastIdentity = true, identity, identity
-    rejectedReason = nil
+    rejectedReason, recoveryReason = nil, nil
     confirmed(identity, arrival)
     return
   elseif payload.area ~= nil then
@@ -428,6 +558,12 @@ function room.onInfo(payload)
 end
 
 function room.onPrompt()
+  if headingFrame and not headingFrame.headingSeen then
+    headingFrame.closed = true
+    if not headingFrame.arrival.info then
+      recoveryReason = 'The successful walk frame closed before a native heading.'
+    end
+  end
   -- Only unhinted Info-first correlation expires at a prompt. An outgoing
   -- movement token still owns its eventual walk text across prompt boundaries.
   for _, arrival in ipairs(arrivals) do

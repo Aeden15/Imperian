@@ -16,6 +16,14 @@ function dem.resetConnection()
   dem.room.reset()
 end
 
+function dem.onDeath()
+  dem.hunt.stop('You are dead.')
+  dem.hunt.lastAction = nil
+  dem.targeting.clear('system')
+  dem.balances.clearForDeath()
+  dem.room.reset()
+end
+
 local function gmcpHandler(event, fn)
   dem.bind('gmcp.' .. event, function()
     local value = gmcp

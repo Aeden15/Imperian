@@ -53,6 +53,11 @@ end
 
 function hunt.toggle()
   if hunt.enabled then hunt.stop(); return false end
+  if dem.balances.dead then
+    hunt.stop('You are dead.')
+    message('Hunt mode remains off while you are dead.')
+    return false
+  end
   if dem.targeting.kind == 'player' then dem.targeting.clear('hunt') end
   manualReference = dem.targeting.kind == 'denizen' and dem.targeting.source == 'manual' and dem.target or nil
   selected, hunt.enabled = nil, true
@@ -158,6 +163,7 @@ end
 function hunt.step()
   if not hunt.enabled then return end
   local v, b, room = dem.vitals, dem.balances, dem.room
+  if b.dead then hunt.stop('You are dead.'); return end
   -- A known low percentage stops immediately, even while another field is missing.
   if v and finite(v.hp) and finite(v.maxhp) and v.maxhp > 0 and v.hp / v.maxhp * 100 <= dem.settings.hpLimit then
     hunt.stop('Health reached the configured limit.'); return
@@ -330,7 +336,12 @@ function hunt.status(detailed)
     .. '; expected room: ' .. value(diagnostics.expectedDestination)
     .. '; last GMCP room: ' .. value(diagnostics.lastReceivedRoom)
     .. '; identity block: ' .. (diagnostics.rejectedReason or 'none')
-    .. '; target type: ' .. (dem.targeting.kind or 'none') .. '; ' .. hunt.reason)
+    .. '; blocking context: ' .. value(diagnostics.blockingContext)
+    .. '; blocking direction: ' .. value(diagnostics.blockingDirection)
+    .. '; blocking expected room: ' .. value(diagnostics.blockingExpected)
+    .. '; recovery: ' .. (diagnostics.recoveryReason or 'none')
+    .. '; target type: ' .. (dem.targeting.kind or 'none')
+    .. (hunt.enabled and '; state: ' or '; last stop: ') .. hunt.reason)
   return hunt.enabled
 end
 function hunt.setLimits(hp, mana)
