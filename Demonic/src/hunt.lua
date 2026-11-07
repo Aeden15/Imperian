@@ -64,13 +64,14 @@ end
 
 function hunt.onTargetChanged(oldReference, reference, kind, source)
   if source == 'hunt' or not hunt.enabled then return end
+  local preferredKey = selected and selected.room == dem.room.num and selected.key or nil
   selected = nil
   if not reference then hunt.stop('The shared target was cleared.'); return end
   if kind == 'player' then hunt.stop('A player target was selected.'); return end
   manualReference = reference
   -- Retain known same-room ownership even during refresh, so a Remove packet
   -- can end this exception. step() still requires the fresh roster to attack.
-  local item, key = dem.room.identify(reference)
+  local item, key = dem.room.identify(reference, preferredKey, true)
   if item then
     selected = {reference = reference, key = key, room = dem.room.num, item = item, manual = true}
     if dem.room.ready and not dem.room.eligible(item) then
@@ -93,19 +94,36 @@ end
 local function areaList()
   return dem.room.area and dem.settings.areas[dem.room.area] or nil
 end
+local function validateManualSelection()
+  local room = dem.room
+  if selected and selected.manual and selected.reference == manualReference and selected.room == room.num then
+    local item = room.items[selected.key]
+    if item and not room.retired[selected.key] and room.living(item) then
+      if not room.eligible(item) then hunt.stop('The selected denizen is protected.'); return end
+      -- A changed description does not make this a different physical target.
+      selected.item = item
+      return
+    end
+    -- The one-target exception ends here, rather than moving to another match
+    -- for the same generic word. Automatic selection returns to the area list.
+    local reference = manualReference
+    selected, manualReference = nil, nil
+    if dem.target == reference then dem.targeting.clear('hunt') end
+    return
+  end
+  local item, key = room.resolve(manualReference)
+  if not item then hunt.stop(key); return end
+  selected = {reference = manualReference, key = key, room = room.num, item = item, manual = true}
+end
 local function choose()
   local room = dem.room
-  if manualReference then
-    local item, key = room.resolve(manualReference)
-    if not item then hunt.stop(key); return nil end
-    if not room.eligible(item) then hunt.stop('The selected denizen is dead or protected.'); return nil end
-    return {reference = manualReference, key = key, room = room.num, item = item, manual = true}
-  end
+  -- step() has already validated this exact physical identity, not just its word.
+  if manualReference then return selected end
   local allowed = areaList()
   if selected and selected.room == room.num then
     local item = room.items[selected.key]
     if item and not room.retired[selected.key] and room.eligible(item)
-        and allowed and allowed[dem.norm(item.name)] then
+        and room.matchesAllowlist(item, allowed) then
       selected.item = item
       return selected
     end
@@ -114,7 +132,7 @@ local function choose()
   if allowed then
     for _, key in ipairs(room.order) do
       local item = room.items[key]
-      if item and not room.retired[key] and room.eligible(item) and allowed[dem.norm(item.name)] then
+      if item and not room.retired[key] and room.eligible(item) and room.matchesAllowlist(item, allowed) then
         return {reference = key, key = key, room = room.num, item = item, manual = false}
       end
     end
@@ -137,10 +155,8 @@ function hunt.step()
       or v.prone == nil or v.stunned == nil then waitForState(); return end
   cancelState()
   if manualReference then
-    local item, key = room.resolve(manualReference)
-    if not item then hunt.stop(key); return end
-    if not room.eligible(item) then hunt.stop('The selected denizen is dead or protected.'); return end
-    selected = {reference = manualReference, key = key, room = room.num, item = item, manual = true}
+    validateManualSelection()
+    if not hunt.enabled then return end
   end
   if b.action then hunt.reason = 'Waiting for the confirmed attack balance cycle.'; watchAction(b.action); return end
   watchedAction = nil
@@ -160,7 +176,9 @@ function hunt.step()
   end
   -- Target-change callbacks are synchronous; recheck before committing the send.
   if not hunt.enabled or dem.target ~= candidate.reference or b.action then return end
-  local command, err = dem.ritualism.buildTrace({'fire', 'ice'}, dem.target)
+  -- The shared reference stays opaque; attack only the pinned room identity.
+  -- Sending a generic word here would let the server switch matching denizens.
+  local command, err = dem.ritualism.buildTrace({'fire', 'ice'}, candidate.key)
   if not command then hunt.stop(err or 'Cannot build the hunting attack.'); return end
   local action = {reference = dem.target, key = candidate.key, room = room.num,
     item = candidate.item, retired = false, started = dem.now()}
@@ -220,7 +238,7 @@ function hunt.add(name)
   local area = dem.room.area
   if not area then return reject('The current area is unknown.') end
   name = validName(name)
-  if not name then return reject('Supply the full denizen name.') end
+  if not name then return reject('Supply a denizen keyword or full name.') end
   dem.settings.areas[area] = dem.settings.areas[area] or {}
   dem.settings.areas[area][name] = true
   dem.saveSettings()
@@ -232,11 +250,13 @@ function hunt.remove(name)
   local area = dem.room.area
   if not area then return reject('The current area is unknown.') end
   name = validName(name)
-  if not name then return reject('Supply the full denizen name.') end
+  if not name then return reject('Supply a denizen keyword or full name.') end
   if dem.settings.areas[area] then dem.settings.areas[area][name] = nil end
   dem.saveSettings()
   message('Removed ' .. name .. ' in ' .. area .. '.')
-  if selected and not selected.manual and dem.norm(selected.item.name) == name then selected = nil; clearOwned() end
+  if selected and not selected.manual and not dem.room.matchesAllowlist(selected.item, areaList()) then
+    selected = nil; clearOwned()
+  end
   schedule()
   return true
 end

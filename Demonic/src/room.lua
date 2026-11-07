@@ -28,11 +28,54 @@ local function changed()
   if dem.schedule then dem.schedule() end
 end
 
-function room.eligible(item)
-  if type(item) ~= 'table' or not id(item.id) or type(item.name) ~= 'string' then return false end
+function room.living(item)
+  if type(item) ~= 'table' or not id(item.id) or type(item.name) ~= 'string'
+      or dem.trim(item.name) == '' then return false end
   local attr = type(item.attrib) == 'string' and item.attrib:lower() or ''
   return attr:find('m', 1, true) ~= nil and not attr:find('d', 1, true)
-    and not attr:find('x', 1, true)
+end
+
+function room.eligible(item)
+  return room.living(item) and not item.attrib:lower():find('x', 1, true)
+end
+
+local function nameWords(name)
+  return name:lower():gmatch('[%w_%-]+')
+end
+
+local function keyword(word)
+  return word ~= 'a' and word ~= 'an' and word ~= 'the'
+end
+
+function room.matchesReference(item, reference)
+  if type(item) ~= 'table' or type(item.name) ~= 'string' then return false end
+  local key, valid = id(item.id), dem.validReference(reference)
+  if not key or not valid then return false end
+  local ref = valid:lower()
+  if ref == key then return true end
+  for word in nameWords(item.name) do
+    if keyword(word) and (ref == word or ref == word .. key) then return true end
+  end
+  return false
+end
+
+function room.matchesAllowlist(item, allowed)
+  if type(item) ~= 'table' or type(item.name) ~= 'string' or type(allowed) ~= 'table' then return false end
+  local name = dem.norm(item.name)
+  for entry, enabled in pairs(allowed) do
+    if enabled == true and type(entry) == 'string' then
+      local normalized = dem.norm(entry)
+      if normalized ~= '' then
+        if normalized == name then return true end
+        if normalized:match('^[%w_%-]+$') and keyword(normalized) then
+          for word in nameWords(item.name) do
+            if word == normalized then return true end
+          end
+        end
+      end
+    end
+  end
+  return false
 end
 
 function room.reset()
@@ -138,33 +181,43 @@ end
 
 -- This lookup may use a known same-room snapshot while its refresh is pending.
 -- It is for target ownership/removal only; resolve() below gates all attacks.
-function room.identify(reference)
+function room.identify(reference, preferredKey, eligibleOnly)
   if not room.num or room.phase == 'barrier' then return nil, 'The room identity is not ready.' end
   local valid = dem.validReference(reference)
   if not valid then return nil, 'Invalid denizen reference.' end
   local ref, found, foundKey = valid:lower(), nil, nil
+  -- A native identity must never redirect to another denizen's numeric name word.
+  local exact = room.items[ref]
+  if exact or room.retired[ref] then
+    if room.retired[ref] or not room.living(exact) then
+      return nil, 'That denizen is not in the current room.'
+    end
+    if eligibleOnly and not room.eligible(exact) then
+      return nil, 'That denizen is protected and cannot be hunted.'
+    end
+    return exact, ref
+  end
+  local preferred, preferredItem, protected = id(preferredKey), nil, false
   for _, key in ipairs(room.order) do
     local item = room.items[key]
-    if item and not room.retired[key] then
-      local matches = ref == key
-      if type(item.name) == 'string' then
-        for word in item.name:lower():gmatch('[%w]+') do
-          if word ~= 'a' and word ~= 'an' and word ~= 'the' then
-            if ref == word or ref == word .. key then matches = true end
-          end
-        end
-      end
-      if matches then
-        if foundKey and foundKey ~= key then return nil, 'That denizen reference is ambiguous.' end
-        found, foundKey = item, key
+    if item and not room.retired[key] and room.living(item) and room.matchesReference(item, valid) then
+      if eligibleOnly and not room.eligible(item) then
+        protected = true
+      else
+        if not found then found, foundKey = item, key end
+        if key == preferred then preferredItem = item end
       end
     end
   end
-  if not found then return nil, 'That denizen is not in the current room.' end
+  if preferredItem then return preferredItem, preferred end
+  if not found then
+    if protected then return nil, 'That denizen is protected and cannot be hunted.' end
+    return nil, 'That denizen is not in the current room.'
+  end
   return found, foundKey
 end
 
-function room.resolve(reference)
+function room.resolve(reference, preferredKey)
   if not room.ready then return nil, 'The room roster is not ready.' end
-  return room.identify(reference)
+  return room.identify(reference, preferredKey, true)
 end

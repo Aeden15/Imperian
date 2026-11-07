@@ -83,9 +83,10 @@ if (!$targetAliases) {
     Set-Text $targetAliases 'name' 'Targeting'
     [void]$aliases.AppendChild($targetAliases)
 }
-Add-Alias $targetAliases 'Target player' '^t player (\S+)$' 'dem.targeting.setPlayer(matches[2])'
-Add-Alias $targetAliases 'Target denizen' '^t denizen (\S+)$' 'dem.targeting.setDenizen(matches[2])'
-Add-Alias $targetAliases 'Clear target' '^t clear$' 'dem.targeting.clear()'
+foreach ($legacyName in @('Target player','Target denizen','Clear target')) {
+    Remove-Owned $targetAliases 'Alias' $legacyName
+}
+Add-Alias $targetAliases 'Targeting' '^t (\w+)$' 'dem.targeting.set(matches[2])'
 $huntAliases = Get-Group '//AliasPackage/AliasGroup[name="Demonic"]/AliasGroup[name="System"]/AliasGroup[name="Autobasher"]'
 Add-Alias $huntAliases 'Hunt mode' '^hunt$' 'dem.hunt.toggle()'
 Add-Alias $huntAliases 'Hunt add' '^hunt add (.+)$' 'dem.hunt.add(matches[2])'
@@ -104,7 +105,7 @@ Add-Trigger $balances 'Equilibrium unavailable' '^You must regain (?:your )?equi
 Add-Trigger $balances 'Prompt readiness' '' 'dem.onPrompt(line)' 7
 $hunting = Get-Group '//TriggerPackage/TriggerGroup[name="Demonic"]/TriggerGroup[name="System"]/TriggerGroup[name="Autobasher"]'
 Add-Trigger $hunting 'Denizen slain' '^The final blow is too much, you have slain (.+)\.$' 'dem.hunt.onKill(matches[2])'
-Add-Trigger $hunting 'Target absent' '^You do not see that individual here\.$' 'dem.hunt.onMissing()'
+Add-Trigger $hunting 'Target absent' '^(?:You do not see that individual here\.|Nothing can be seen here by that name\.|Ahh, I am truly sorry, but I do not see anyone by that name here\.)$' 'dem.hunt.onMissing()'
 
 $settings = [Xml.XmlWriterSettings]::new()
 $settings.Indent = $true

@@ -24,3 +24,11 @@ function targeting.setPlayer(ref, source) return select(ref, 'player', source) e
 function targeting.setDenizen(ref, source) return select(ref, 'denizen', source) end
 function targeting.clear(source) return change(nil, nil, source) end
 function targeting.get() return dem.target end
+
+function targeting.set(ref, source)
+  local valid, err = dem.validReference(ref)
+  if not valid then dem.message(err); return false, err end
+  if valid:lower() == 'clear' then return targeting.clear(source) end
+  if dem.room.identify(valid) then return targeting.setDenizen(valid, source) end
+  return targeting.setPlayer(valid, source)
+end

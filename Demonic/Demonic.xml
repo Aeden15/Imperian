@@ -233,7 +233,7 @@
 						<colorTriggerFgColor>#000000</colorTriggerFgColor>
 						<colorTriggerBgColor>#000000</colorTriggerBgColor>
 						<regexCodeList>
-							<string>^You do not see that individual here\.$</string>
+							<string>^(?:You do not see that individual here\.|Nothing can be seen here by that name\.|Ahh, I am truly sorry, but I do not see anyone by that name here\.)$</string>
 						</regexCodeList>
 						<regexCodePropertyList>
 							<integer>1</integer>
@@ -341,25 +341,11 @@
 					<packageName></packageName>
 					<regex></regex>
 					<Alias isActive="yes" isFolder="no">
-						<name>Target player</name>
-						<script>dem.targeting.setPlayer(matches[2])</script>
+						<name>Targeting</name>
+						<script>dem.targeting.set(matches[2])</script>
 						<command></command>
 						<packageName></packageName>
-						<regex>^t player (\S+)$</regex>
-					</Alias>
-					<Alias isActive="yes" isFolder="no">
-						<name>Target denizen</name>
-						<script>dem.targeting.setDenizen(matches[2])</script>
-						<command></command>
-						<packageName></packageName>
-						<regex>^t denizen (\S+)$</regex>
-					</Alias>
-					<Alias isActive="yes" isFolder="no">
-						<name>Clear target</name>
-						<script>dem.targeting.clear()</script>
-						<command></command>
-						<packageName></packageName>
-						<regex>^t clear$</regex>
+						<regex>^t (\w+)$</regex>
 					</Alias>
 				</AliasGroup>
 			</AliasGroup>
@@ -540,6 +526,14 @@ function targeting.setPlayer(ref, source) return select(ref, 'player', source) e
 function targeting.setDenizen(ref, source) return select(ref, 'denizen', source) end
 function targeting.clear(source) return change(nil, nil, source) end
 function targeting.get() return dem.target end
+
+function targeting.set(ref, source)
+  local valid, err = dem.validReference(ref)
+  if not valid then dem.message(err); return false, err end
+  if valid:lower() == 'clear' then return targeting.clear(source) end
+  if dem.room.identify(valid) then return targeting.setDenizen(valid, source) end
+  return targeting.setPlayer(valid, source)
+end
 </script>
 					<eventHandlerList />
 				</Script>
@@ -700,11 +694,54 @@ local function changed()
   if dem.schedule then dem.schedule() end
 end
 
-function room.eligible(item)
-  if type(item) ~= 'table' or not id(item.id) or type(item.name) ~= 'string' then return false end
+function room.living(item)
+  if type(item) ~= 'table' or not id(item.id) or type(item.name) ~= 'string'
+      or dem.trim(item.name) == '' then return false end
   local attr = type(item.attrib) == 'string' and item.attrib:lower() or ''
   return attr:find('m', 1, true) ~= nil and not attr:find('d', 1, true)
-    and not attr:find('x', 1, true)
+end
+
+function room.eligible(item)
+  return room.living(item) and not item.attrib:lower():find('x', 1, true)
+end
+
+local function nameWords(name)
+  return name:lower():gmatch('[%w_%-]+')
+end
+
+local function keyword(word)
+  return word ~= 'a' and word ~= 'an' and word ~= 'the'
+end
+
+function room.matchesReference(item, reference)
+  if type(item) ~= 'table' or type(item.name) ~= 'string' then return false end
+  local key, valid = id(item.id), dem.validReference(reference)
+  if not key or not valid then return false end
+  local ref = valid:lower()
+  if ref == key then return true end
+  for word in nameWords(item.name) do
+    if keyword(word) and (ref == word or ref == word .. key) then return true end
+  end
+  return false
+end
+
+function room.matchesAllowlist(item, allowed)
+  if type(item) ~= 'table' or type(item.name) ~= 'string' or type(allowed) ~= 'table' then return false end
+  local name = dem.norm(item.name)
+  for entry, enabled in pairs(allowed) do
+    if enabled == true and type(entry) == 'string' then
+      local normalized = dem.norm(entry)
+      if normalized ~= '' then
+        if normalized == name then return true end
+        if normalized:match('^[%w_%-]+$') and keyword(normalized) then
+          for word in nameWords(item.name) do
+            if word == normalized then return true end
+          end
+        end
+      end
+    end
+  end
+  return false
 end
 
 function room.reset()
@@ -810,35 +847,45 @@ end
 
 -- This lookup may use a known same-room snapshot while its refresh is pending.
 -- It is for target ownership/removal only; resolve() below gates all attacks.
-function room.identify(reference)
+function room.identify(reference, preferredKey, eligibleOnly)
   if not room.num or room.phase == 'barrier' then return nil, 'The room identity is not ready.' end
   local valid = dem.validReference(reference)
   if not valid then return nil, 'Invalid denizen reference.' end
   local ref, found, foundKey = valid:lower(), nil, nil
+  -- A native identity must never redirect to another denizen's numeric name word.
+  local exact = room.items[ref]
+  if exact or room.retired[ref] then
+    if room.retired[ref] or not room.living(exact) then
+      return nil, 'That denizen is not in the current room.'
+    end
+    if eligibleOnly and not room.eligible(exact) then
+      return nil, 'That denizen is protected and cannot be hunted.'
+    end
+    return exact, ref
+  end
+  local preferred, preferredItem, protected = id(preferredKey), nil, false
   for _, key in ipairs(room.order) do
     local item = room.items[key]
-    if item and not room.retired[key] then
-      local matches = ref == key
-      if type(item.name) == 'string' then
-        for word in item.name:lower():gmatch('[%w]+') do
-          if word ~= 'a' and word ~= 'an' and word ~= 'the' then
-            if ref == word or ref == word .. key then matches = true end
-          end
-        end
-      end
-      if matches then
-        if foundKey and foundKey ~= key then return nil, 'That denizen reference is ambiguous.' end
-        found, foundKey = item, key
+    if item and not room.retired[key] and room.living(item) and room.matchesReference(item, valid) then
+      if eligibleOnly and not room.eligible(item) then
+        protected = true
+      else
+        if not found then found, foundKey = item, key end
+        if key == preferred then preferredItem = item end
       end
     end
   end
-  if not found then return nil, 'That denizen is not in the current room.' end
+  if preferredItem then return preferredItem, preferred end
+  if not found then
+    if protected then return nil, 'That denizen is protected and cannot be hunted.' end
+    return nil, 'That denizen is not in the current room.'
+  end
   return found, foundKey
 end
 
-function room.resolve(reference)
+function room.resolve(reference, preferredKey)
   if not room.ready then return nil, 'The room roster is not ready.' end
-  return room.identify(reference)
+  return room.identify(reference, preferredKey, true)
 end
 </script>
 						<eventHandlerList />
@@ -918,13 +965,14 @@ end
 
 function hunt.onTargetChanged(oldReference, reference, kind, source)
   if source == 'hunt' or not hunt.enabled then return end
+  local preferredKey = selected and selected.room == dem.room.num and selected.key or nil
   selected = nil
   if not reference then hunt.stop('The shared target was cleared.'); return end
   if kind == 'player' then hunt.stop('A player target was selected.'); return end
   manualReference = reference
   -- Retain known same-room ownership even during refresh, so a Remove packet
   -- can end this exception. step() still requires the fresh roster to attack.
-  local item, key = dem.room.identify(reference)
+  local item, key = dem.room.identify(reference, preferredKey, true)
   if item then
     selected = {reference = reference, key = key, room = dem.room.num, item = item, manual = true}
     if dem.room.ready and not dem.room.eligible(item) then
@@ -947,19 +995,36 @@ end
 local function areaList()
   return dem.room.area and dem.settings.areas[dem.room.area] or nil
 end
+local function validateManualSelection()
+  local room = dem.room
+  if selected and selected.manual and selected.reference == manualReference and selected.room == room.num then
+    local item = room.items[selected.key]
+    if item and not room.retired[selected.key] and room.living(item) then
+      if not room.eligible(item) then hunt.stop('The selected denizen is protected.'); return end
+      -- A changed description does not make this a different physical target.
+      selected.item = item
+      return
+    end
+    -- The one-target exception ends here, rather than moving to another match
+    -- for the same generic word. Automatic selection returns to the area list.
+    local reference = manualReference
+    selected, manualReference = nil, nil
+    if dem.target == reference then dem.targeting.clear('hunt') end
+    return
+  end
+  local item, key = room.resolve(manualReference)
+  if not item then hunt.stop(key); return end
+  selected = {reference = manualReference, key = key, room = room.num, item = item, manual = true}
+end
 local function choose()
   local room = dem.room
-  if manualReference then
-    local item, key = room.resolve(manualReference)
-    if not item then hunt.stop(key); return nil end
-    if not room.eligible(item) then hunt.stop('The selected denizen is dead or protected.'); return nil end
-    return {reference = manualReference, key = key, room = room.num, item = item, manual = true}
-  end
+  -- step() has already validated this exact physical identity, not just its word.
+  if manualReference then return selected end
   local allowed = areaList()
   if selected and selected.room == room.num then
     local item = room.items[selected.key]
     if item and not room.retired[selected.key] and room.eligible(item)
-        and allowed and allowed[dem.norm(item.name)] then
+        and room.matchesAllowlist(item, allowed) then
       selected.item = item
       return selected
     end
@@ -968,7 +1033,7 @@ local function choose()
   if allowed then
     for _, key in ipairs(room.order) do
       local item = room.items[key]
-      if item and not room.retired[key] and room.eligible(item) and allowed[dem.norm(item.name)] then
+      if item and not room.retired[key] and room.eligible(item) and room.matchesAllowlist(item, allowed) then
         return {reference = key, key = key, room = room.num, item = item, manual = false}
       end
     end
@@ -991,10 +1056,8 @@ function hunt.step()
       or v.prone == nil or v.stunned == nil then waitForState(); return end
   cancelState()
   if manualReference then
-    local item, key = room.resolve(manualReference)
-    if not item then hunt.stop(key); return end
-    if not room.eligible(item) then hunt.stop('The selected denizen is dead or protected.'); return end
-    selected = {reference = manualReference, key = key, room = room.num, item = item, manual = true}
+    validateManualSelection()
+    if not hunt.enabled then return end
   end
   if b.action then hunt.reason = 'Waiting for the confirmed attack balance cycle.'; watchAction(b.action); return end
   watchedAction = nil
@@ -1014,7 +1077,9 @@ function hunt.step()
   end
   -- Target-change callbacks are synchronous; recheck before committing the send.
   if not hunt.enabled or dem.target ~= candidate.reference or b.action then return end
-  local command, err = dem.ritualism.buildTrace({'fire', 'ice'}, dem.target)
+  -- The shared reference stays opaque; attack only the pinned room identity.
+  -- Sending a generic word here would let the server switch matching denizens.
+  local command, err = dem.ritualism.buildTrace({'fire', 'ice'}, candidate.key)
   if not command then hunt.stop(err or 'Cannot build the hunting attack.'); return end
   local action = {reference = dem.target, key = candidate.key, room = room.num,
     item = candidate.item, retired = false, started = dem.now()}
@@ -1074,7 +1139,7 @@ function hunt.add(name)
   local area = dem.room.area
   if not area then return reject('The current area is unknown.') end
   name = validName(name)
-  if not name then return reject('Supply the full denizen name.') end
+  if not name then return reject('Supply a denizen keyword or full name.') end
   dem.settings.areas[area] = dem.settings.areas[area] or {}
   dem.settings.areas[area][name] = true
   dem.saveSettings()
@@ -1086,11 +1151,13 @@ function hunt.remove(name)
   local area = dem.room.area
   if not area then return reject('The current area is unknown.') end
   name = validName(name)
-  if not name then return reject('Supply the full denizen name.') end
+  if not name then return reject('Supply a denizen keyword or full name.') end
   if dem.settings.areas[area] then dem.settings.areas[area][name] = nil end
   dem.saveSettings()
   message('Removed ' .. name .. ' in ' .. area .. '.')
-  if selected and not selected.manual and dem.norm(selected.item.name) == name then selected = nil; clearOwned() end
+  if selected and not selected.manual and not dem.room.matchesAllowlist(selected.item, areaList()) then
+    selected = nil; clearOwned()
+  end
   schedule()
   return true
 end
