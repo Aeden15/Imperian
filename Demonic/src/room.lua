@@ -5,6 +5,9 @@ dem.room = {items = {}, order = {}, retired = {}, ready = false,
   phase = 'unconfirmed', generation = 0}
 local room = dem.room
 local pendingMoves, lastIdentity = 0, nil
+-- Text and Room.Info acknowledge the same arrival in either order. Only
+-- Room.Info consumes queued movement or supplies an identity.
+local arrivals, currentArrival, awaitingArrival = {}, nil, false
 local timerKeys = {'room-initial', 'room-retry', 'room-fallback', 'room-timeout'}
 
 local function id(value)
@@ -97,6 +100,7 @@ end
 function room.reset()
   invalidate()
   pendingMoves, lastIdentity = 0, nil
+  arrivals, currentArrival, awaitingArrival = {}, nil, false
   room.subscribed, room.processingList = false, false
 end
 
@@ -138,11 +142,15 @@ local function request(reason, deferInitial)
   end
   if active then
     dem.defer('room-retry', 1, function() if current() then query() end end)
-    dem.defer('room-fallback', 2, function()
-      if not current() then return end
-      refresh.ihSent = true
-      if type(send) == 'function' then send('ih') end
-    end)
+    -- Outgoing movement invalidates targets immediately, but its recovery
+    -- grace starts at arrival rather than before a slow command executes.
+    if not awaitingArrival then
+      dem.defer('room-fallback', 0.2, function()
+        if not current() then return end
+        refresh.ihSent = true
+        if type(send) == 'function' then send('ih') end
+      end)
+    end
     dem.defer('room-timeout', 10, function()
       if not current() then return end
       local reason = room.num and 'The full room roster did not arrive.'
@@ -159,22 +167,37 @@ local directions = {n=true, ne=true, e=true, se=true, s=true, sw=true, w=true,
   nw=true, u=true, d=true, ['in']=true, out=true, north=true, northeast=true,
   east=true, southeast=true, south=true, southwest=true, west=true,
   northwest=true, up=true, down=true}
+local fullDirection = {n='north', ne='northeast', e='east', se='southeast',
+  s='south', sw='southwest', w='west', nw='northwest', u='up', d='down'}
+
+local function direction(value)
+  if type(value) ~= 'string' then return nil end
+  value = dem.trim(value):lower()
+  if not directions[value] then return nil end
+  return fullDirection[value] or value
+end
 
 function room.onMovement(command)
   if type(command) ~= 'string' then return end
-  local moves, first = 0, 1
+  local moves, first = {}, 1
   local separator = dem.separator
   while true do
     local boundary = command:find(separator, first, true)
     local part = command:sub(first, boundary and boundary - 1 or #command)
-    if directions[dem.trim(part):lower()] then moves = moves + 1 end
+    local heading = direction(part)
+    if heading then moves[#moves + 1] = {direction = heading, textEligible = true} end
     if not boundary then break end
     first = boundary + #separator
   end
-  if moves == 0 then return end
-  if pendingMoves == 0 and room.num then lastIdentity = {num = room.num, area = room.area} end
-  pendingMoves = pendingMoves + moves
+  if #moves == 0 then return end
+  if pendingMoves == 0 then
+    if room.num then lastIdentity = {num = room.num, area = room.area} end
+    arrivals = {}
+  end
+  for _, arrival in ipairs(moves) do arrivals[#arrivals + 1] = arrival end
+  pendingMoves = pendingMoves + #moves
   invalidate()
+  currentArrival, awaitingArrival = nil, true
   if dem.hunt then dem.hunt.onRoomChanged() end
   -- sysDataSendRequest runs before the original command is transmitted.
   if hunting() then request('Movement awaiting Room.Info', true) end
@@ -185,22 +208,60 @@ local function area(value)
   return type(value) == 'string' and dem.trim(value) ~= '' and value or nil
 end
 
-local function confirmed(identity)
-  invalidate()
-  room.num, room.area = identity.num, identity.area
-  room.phase = 'waiting'
-  if dem.hunt then dem.hunt.onRoomChanged() end
-  if hunting() then room.request('Room identity confirmed') end
+local function confirmed(identity, arrival)
+  local fresh = not arrival.generation
+  -- A delayed acknowledgement of an intermediate arrival must not replace
+  -- the cycle already started by text for a later queued movement.
+  if not fresh and arrival.generation ~= room.generation then return end
+  if fresh then
+    invalidate()
+    arrival.generation = room.generation
+    currentArrival, awaitingArrival = arrival, false
+  end
+  if identity then room.num, room.area = identity.num, identity.area end
+  if not room.ready then room.phase = room.num and 'waiting' or 'unconfirmed' end
+  if fresh and dem.hunt then dem.hunt.onRoomChanged() end
+  if hunting() and not room.ready then
+    room.request(identity and 'Room identity confirmed' or 'Room entry confirmed')
+  end
   changed()
+end
+
+function room.onEntered(value)
+  local heading = direction(value)
+  if not heading then return end
+  local arrival
+  for _, candidate in ipairs(arrivals) do
+    if candidate.textEligible and not candidate.entered then
+      if not candidate.direction or candidate.direction == heading then arrival = candidate end
+      break
+    end
+  end
+  if not arrival then
+    -- Coalesce duplicate text only during incomplete arrival recovery. Once
+    -- identity and contents are known, another walk must retire that roster.
+    if currentArrival and currentArrival.entered and currentArrival.direction == heading
+        and not (currentArrival.info and room.ready) then return end
+    arrival = {direction = heading}
+    arrivals[#arrivals + 1] = arrival
+  end
+  arrival.entered, arrival.direction = true, heading
+  confirmed(nil, arrival)
 end
 
 function room.onWrongDir(payload)
   if type(payload) ~= 'string' or pendingMoves == 0 then return end
+  for i, arrival in ipairs(arrivals) do
+    if not arrival.info then table.remove(arrivals, i); break end
+  end
   pendingMoves = pendingMoves - 1
   if pendingMoves == 0 and lastIdentity then
-    confirmed(lastIdentity)
+    local arrival = {info = true}
+    arrivals = {arrival}
+    confirmed(lastIdentity, arrival)
   else
     invalidate()
+    currentArrival, awaitingArrival = nil, true
     if hunting() then room.request('Movement awaiting Room.Info') end
     changed()
   end
@@ -214,36 +275,56 @@ function room.onInfo(payload)
   -- LOOK and duplicate updates also emit Room.Info. Repeating the last known
   -- identity does not prove that a queued movement has executed. Otherwise a
   -- look&&n reply could re-enable attacks in the room we are about to leave.
-  if pendingMoves > 0 and lastIdentity and number == lastIdentity.num then
+  if (pendingMoves > 0 or (currentArrival and currentArrival.entered and not room.num))
+      and lastIdentity and number == lastIdentity.num then
     if payload.area ~= nil then lastIdentity.area = identity.area end
     changed()
     return
   end
-  lastIdentity = identity
+  local arrival
   if pendingMoves > 0 then
+    for _, candidate in ipairs(arrivals) do
+      if not candidate.info then arrival = candidate; break end
+    end
+    arrival.info = true
+    lastIdentity = identity
     pendingMoves = pendingMoves - 1
     if pendingMoves == 0 then
-      confirmed(identity)
+      confirmed(identity, arrival)
     else
-      invalidate()
-      if hunting() then room.request('Movement awaiting final Room.Info') end
-      changed()
+      confirmed(nil, arrival)
     end
     return
   end
   if number ~= room.num then
-    confirmed(identity)
+    for _, candidate in ipairs(arrivals) do
+      if not candidate.info then arrival = candidate; break end
+    end
+    if not arrival then
+      -- The first identity is a snapshot, not evidence of a new arrival. Only
+      -- a genuine transition may pair with walk text that has not arrived yet.
+      arrival = {textEligible = lastIdentity ~= nil}
+      -- No queued command needs older arrival acknowledgements now.
+      arrivals = {arrival}
+    end
+    arrival.info, lastIdentity = true, identity
+    confirmed(identity, arrival)
     return
   elseif payload.area ~= nil then
     room.area = identity.area
   else
-    lastIdentity.area = room.area
+    identity.area = room.area
   end
+  lastIdentity = identity
   changed()
 end
 
 function room.onPrompt()
-  -- Room.Info and complete room lists synchronize without a text prompt.
+  -- Close unmatched text correlation, never room readiness or Info matching.
+  -- A later walk cannot belong to a completed server output transaction.
+  for _, arrival in ipairs(arrivals) do
+    if arrival.info then arrival.textEligible = false end
+  end
 end
 
 function room.onList(payload)

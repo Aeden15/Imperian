@@ -25,7 +25,7 @@ $preserved = $package.Clone()
 $owned = @{
     Script = @($sourceFiles.Keys)
     Alias = @('Hunt mode','Hunt add','Hunt remove','Hunt list','Hunt status','Hunt limits','Targeting')
-    Trigger = @('Balance loss duration','Equilibrium loss duration','Balance regained','Equilibrium regained','Balance unavailable','Equilibrium unavailable','Prompt readiness','Denizen slain','Target absent')
+    Trigger = @('Balance loss duration','Equilibrium loss duration','Balance regained','Equilibrium regained','Balance unavailable','Equilibrium unavailable','Prompt readiness','Denizen slain','Target absent','Room entered')
 }
 foreach ($tag in $owned.Keys) {
     foreach ($node in @($preserved.SelectNodes(('//' + $tag)))) {
@@ -49,7 +49,7 @@ if ($lastScript.LocalName -cne 'Script' -or $lastScript.SelectSingleNode('name')
 }
 $config = Get-Content -LiteralPath (Join-Path $root 'Demonic/config.lua') -Raw
 if ($config -cnotmatch '(?m)^created = "2026-11-07T01:33:06-06:00"\r?$') { throw 'Export creation timestamp was not preserved.' }
-if ($config -cnotmatch '(?m)^version = \[\[0\.1\.2\]\]\r?$' -or $config -cnotmatch '(?s)description = \[\[Shared targeting.+?\]\]') {
+if ($config -cnotmatch '(?m)^version = \[\[0\.1\.3\]\]\r?$' -or $config -cnotmatch '(?s)description = \[\[Shared targeting.+?\]\]') {
     throw 'Package version or description is missing.'
 }
 foreach ($name in $sourceFiles.Keys) {
@@ -77,6 +77,46 @@ foreach ($command in @('t ant','t ant427409','t 427409','t clear')) {
 }
 foreach ($command in @('t player Name','t denizen ant','t ant extra',' t ant','t  ant','t ant ')) {
     if ($command -cmatch $targetAlias.regex) { throw ('Targeting alias incorrectly accepts: ' + $command) }
+}
+$statusNodes = @($package.SelectNodes('//AliasPackage/AliasGroup[name="System"]/AliasGroup[name="Autobasher"]/Alias[name="Hunt status"]'))
+if ($statusNodes.Count -ne 1) { throw 'Hunt status alias is missing or duplicated.' }
+$statusAlias = $statusNodes[0]
+if ($statusAlias.regex -cne '^hunt status(?: (debug))?$' -or $statusAlias.script -cne 'dem.hunt.status(matches[2] == "debug")') {
+    throw 'Hunt status alias must use the exact approved regex and script.'
+}
+if ($package.SelectNodes('//Alias[@isActive="yes" and name="Hunt status"]').Count -ne 1 -or $statusAlias.GetAttribute('isActive') -cne 'yes') {
+    throw 'Expected one active Hunt status alias in System/Autobasher.'
+}
+foreach ($command in @('hunt status','hunt status debug')) {
+    if ($command -cnotmatch $statusAlias.regex) { throw ('Hunt status alias rejects: ' + $command) }
+}
+foreach ($command in @('hunt status extra','hunt status debug extra','hunt status  debug','hunt statusdebug',' hunt status','hunt status ')) {
+    if ($command -cmatch $statusAlias.regex) { throw ('Hunt status alias incorrectly accepts: ' + $command) }
+}
+$enteredNodes = @($package.SelectNodes('//TriggerPackage/TriggerGroup[name="System"]/TriggerGroup[name="Autobasher"]/Trigger[name="Room entered"]'))
+if ($enteredNodes.Count -ne 1) { throw 'Room entered trigger is missing or duplicated.' }
+$enteredTrigger = $enteredNodes[0]
+$enteredPatterns = @($enteredTrigger.SelectNodes('regexCodeList/string'))
+$enteredTypes = @($enteredTrigger.SelectNodes('regexCodePropertyList/integer'))
+if ($enteredPatterns.Count -ne 1 -or $enteredPatterns[0].InnerText -cne '^You walk (\w+)\.$' -or $enteredTrigger.script -cne 'dem.room.onEntered(matches[2])' -or $enteredTypes.Count -ne 1 -or $enteredTypes[0].InnerText -cne '1') {
+    throw 'Room entered trigger must use the exact approved regex, type, and script.'
+}
+if ($package.SelectNodes('//Trigger[@isActive="yes" and name="Room entered"]').Count -ne 1 -or $enteredTrigger.GetAttribute('isActive') -cne 'yes') {
+    throw 'Expected one active Room entered trigger in System/Autobasher.'
+}
+foreach ($direction in @('north','northeast','east','southeast','south','southwest','west','northwest','up','down','in','out')) {
+    $walkLine = 'You walk ' + $direction + '.'
+    if ($walkLine -cnotmatch $enteredPatterns[0].InnerText -or $Matches[1] -cne $direction) {
+        throw ('Room entered trigger rejects or miscaptures: ' + $walkLine)
+    }
+}
+foreach ($walkLine in @('You walk northeast!','You walk  northeast.','You walk north east.','You walk northeast. extra','prefix You walk northeast.','you walk northeast.')) {
+    if ($walkLine -cmatch $enteredPatterns[0].InnerText) { throw ('Room entered trigger incorrectly accepts: ' + $walkLine) }
+}
+# The approved regex captures words; the Lua handler validates supported directions.
+$slain = $package.SelectSingleNode('//TriggerPackage/TriggerGroup[name="System"]/TriggerGroup[name="Autobasher"]/Trigger[name="Denizen slain"]')
+if (!$slain -or $slain.script -cne 'dem.hunt.onKill(matches[2])' -or $slain.SelectSingleNode('regexCodeList/string').InnerText -cne '^The final blow is too much, you have slain (.+)\.$') {
+    throw 'Denizen slain trigger contract changed.'
 }
 $missingNodes = @($package.SelectNodes('//TriggerPackage/TriggerGroup[name="System"]/TriggerGroup[name="Autobasher"]/Trigger[name="Target absent"]'))
 if ($missingNodes.Count -ne 1) { throw 'Target absent trigger is missing or duplicated.' }
@@ -107,6 +147,14 @@ try {
     $chunks.Add('function DEMONIC_TEST_TARGET_ALIAS(ref)')
     $chunks.Add('matches = {"t " .. ref, ref}')
     $chunks.Add(('return assert((loadstring or load)([====[{0}]====], "Targeting alias"))()' -f $targetAlias.script))
+    $chunks.Add('end')
+    $chunks.Add('function DEMONIC_TEST_ENTERED(direction)')
+    $chunks.Add('matches = {"You walk " .. direction .. ".", direction}')
+    $chunks.Add(('return assert((loadstring or load)([====[{0}]====], "Room entered trigger"))()' -f $enteredTrigger.script))
+    $chunks.Add('end')
+    $chunks.Add('function DEMONIC_TEST_HUNT_STATUS(detailed)')
+    $chunks.Add('matches = {detailed and "hunt status debug" or "hunt status", detailed and "debug" or nil}')
+    $chunks.Add(('return assert((loadstring or load)([====[{0}]====], "Hunt status alias"))()' -f $statusAlias.script))
     $chunks.Add('end')
     $chunks.Add('local missingTargetLines = {}')
     foreach ($line in $missingLines) { $chunks.Add(('missingTargetLines[ [====[{0}]====] ] = true' -f $line)) }

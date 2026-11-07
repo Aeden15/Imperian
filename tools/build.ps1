@@ -92,7 +92,7 @@ Add-Alias $huntAliases 'Hunt mode' '^hunt$' 'dem.hunt.toggle()'
 Add-Alias $huntAliases 'Hunt add' '^hunt add (.+)$' 'dem.hunt.add(matches[2])'
 Add-Alias $huntAliases 'Hunt remove' '^hunt remove (.+)$' 'dem.hunt.remove(matches[2])'
 Add-Alias $huntAliases 'Hunt list' '^hunt list$' 'dem.hunt.list()'
-Add-Alias $huntAliases 'Hunt status' '^hunt status$' 'dem.hunt.status()'
+Add-Alias $huntAliases 'Hunt status' '^hunt status(?: (debug))?$' 'dem.hunt.status(matches[2] == "debug")'
 Add-Alias $huntAliases 'Hunt limits' '^hunt limits (\d+(?:\.\d+)?) (\d+(?:\.\d+)?)$' 'dem.hunt.setLimits(tonumber(matches[2]), tonumber(matches[3]))'
 
 $balances = Get-Group '//TriggerPackage/TriggerGroup[name="System"]/TriggerGroup[name="Balances"]'
@@ -104,6 +104,7 @@ Add-Trigger $balances 'Balance unavailable' '^You must regain (?:your )?balance 
 Add-Trigger $balances 'Equilibrium unavailable' '^You must regain (?:your )?equilibrium first\.$' 'dem.balances.taken("eq")'
 Add-Trigger $balances 'Prompt readiness' '' 'dem.onPrompt(line)' 7
 $hunting = Get-Group '//TriggerPackage/TriggerGroup[name="System"]/TriggerGroup[name="Autobasher"]'
+Add-Trigger $hunting 'Room entered' '^You walk (\w+)\.$' 'dem.room.onEntered(matches[2])'
 Add-Trigger $hunting 'Denizen slain' '^The final blow is too much, you have slain (.+)\.$' 'dem.hunt.onKill(matches[2])'
 Add-Trigger $hunting 'Target absent' '^(?:You do not see that individual here\.|Nothing can be seen here by that name\.|Ahh, I am truly sorry, but I do not see anyone by that name here\.|You detect nothing here by that name\.)$' 'dem.hunt.onMissing()'
 

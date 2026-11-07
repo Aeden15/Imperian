@@ -5,11 +5,12 @@ description = [[Shared targeting and area-specific Diabolist hunting for Imperia
 `t <reference>` selects a living room denizen or selects a player and stops hunting.
 References stay one word: `fido`, `fido1234`, or `1234`. `t clear` stops and clears the target.
 Hunt resolves denizens to their numeric IDs for attacks while keeping the shared reference unchanged.
+`hunt status` shows a short state and reason; `hunt status debug` shows full diagnostics.
 
 Uses learned Duality for a single `trace fire ice <target>` command. The shared command separator is `&&`.
 Default safety stops: 30% health and 10% mana; `hunt limits <hp%> <mana%>` changes them.
 Healing is left to Imperian autocuring. GMCP must be enabled. No movement or auto-updating.
 
 Source and usage: https://github.com/Aeden15/Imperian]]
-version = [[0.1.2]]
+version = [[0.1.3]]
 created = "2026-11-07T01:33:06-06:00"

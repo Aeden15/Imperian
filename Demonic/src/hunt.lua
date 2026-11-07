@@ -297,7 +297,12 @@ function hunt.list()
   message(dem.room.area .. ': ' .. (#names > 0 and table.concat(names, ', ') or '(no allowed denizens)'))
   return names
 end
-function hunt.status()
+function hunt.status(detailed)
+  if detailed ~= true then
+    message('Hunt mode ' .. (hunt.enabled and 'on' or 'off') .. '; target: '
+      .. (dem.target or 'none') .. '; ' .. hunt.reason)
+    return hunt.enabled
+  end
   local v, b = dem.vitals, dem.balances
   local function value(n) return n ~= nil and tostring(n) or 'unknown' end
   local refresh = dem.room.refresh
