@@ -1125,6 +1125,199 @@ test('manual defence pass pauses during Hunt and death cancels the remaining seq
   DEMONIC_TEST_DEFS_ALIAS(); tick(0); eq(#commands,count)
 end)
 
+local wraithTypes={'vigorous','whispering','translucent','fiery','midnight','glowing','reflective','ethereal'}
+local function wraithEvent(eventName,kind,count)
+  return DEMONIC_TEST_CLASS_TRIGGER(eventName,'',kind,count and tostring(count) or nil)
+end
+local statusHeader='Type          Enabled    ID        Charges   Target           Location'
+local function statusRow(kind,enabled,id,charges,target,location)
+  return string.format('%-14s%-11s%-10s%-10s%-17s%s',kind,enabled,id or '---',charges or '',target or '',location or '')
+end
+local function beginWraiths()
+  DEMONIC_TEST_CLASS_TRIGGER('Wraith status header',statusHeader)
+end
+local function wraithRow(kind,enabled,id,charges,target,location)
+  DEMONIC_TEST_CLASS_TRIGGER('Wraith status row',statusRow(kind,enabled,id,charges,target,location))
+end
+local function emptyWraithRows(except)
+  for _,kind in ipairs(wraithTypes) do
+    if not (except and except[kind]) then
+      wraithRow(kind:sub(1,1):upper()..kind:sub(2),'No')
+    end
+  end
+end
+
+test('wraith events track all eight types without commands or fabricated charges', function()
+  reset()
+  for _,kind in ipairs(wraithTypes) do
+    local w=dem.nightfall.wraiths[kind]; eq(w.present,nil); eq(w.charges,nil)
+    wraithEvent('Wraith materialised',kind); eq(w.present,true); eq(w.charges,nil)
+    wraithEvent('Wraith charges',kind,1); eq(w.charges,1)
+    wraithEvent('Wraith charges',kind,5); eq(w.charges,5)
+    wraithEvent('Wraith materialised',kind); eq(w.charges,5)
+    tick(65); eq(w.present,true); eq(w.charges,5)
+    wraithEvent('Wraith lost charges',kind); eq(w.charges,0); eq(w.present,true)
+    wraithEvent('Wraith vanished',kind); eq(w.present,false); eq(w.charges,nil); eq(w.id,nil)
+    wraithEvent('Wraith vanished',kind); eq(w.present,false)
+  end
+  eq(#commands,0); eq(#gmcpSent,0)
+end)
+
+test('wraith observations do not change Hunt action target or Nightfall defence', function()
+  reset(); start(); local target,action=dem.target,dem.balances.action
+  DEMONIC_TEST_CLASS_TRIGGER('Nightfall defence')
+  wraithEvent('Wraith charges','vigorous',3); eq(dem.nightfall.wraiths.vigorous.present,true)
+  wraithEvent('Wraith vanished','vigorous'); tick(0)
+  eq(dem.target,target); eq(dem.balances.action,action); eq(#sent,1); assert(dem.defences.active.nightfall)
+  wraithEvent('Wraith materialised','whispering'); room('Elsewhere',102)
+  eq(dem.nightfall.wraiths.whispering.present,true)
+  DEMONIC_TEST_CLASS_TRIGGER('Nightfall cease'); eq(dem.nightfall.wraiths.whispering.present,true)
+end)
+
+test('complete WRAITHS snapshots distinguish enabled absent and present with zero charges', function()
+  reset(); beginWraiths()
+  wraithRow('Vigorous','Yes','438505','0','---','here')
+  wraithRow('Whispering','Yes','387609','1','Aeden','a dark cavern')
+  wraithRow('Translucent','Yes'); wraithRow('Reflective','Yes')
+  emptyWraithRows({vigorous=true,whispering=true,translucent=true,reflective=true})
+  eq(dem.nightfall.wraiths.vigorous.present,nil)
+  dem.onPrompt()
+  local w=dem.nightfall.wraiths.vigorous
+  eq(w.enabled,true); eq(w.present,true); eq(w.id,'438505'); eq(w.charges,0); eq(w.target,nil); eq(w.location,'here')
+  w=dem.nightfall.wraiths.whispering
+  eq(w.charges,1); eq(w.target,'Aeden'); eq(w.location,'a dark cavern')
+  w=dem.nightfall.wraiths.translucent; eq(w.enabled,true); eq(w.present,false)
+  w=dem.nightfall.wraiths.fiery; eq(w.enabled,false); eq(w.present,false)
+  eq(#commands,0); eq(#gmcpSent,0)
+end)
+
+test('partial malformed duplicate and overfull WRAITHS snapshots preserve observations', function()
+  for _,bad in ipairs({'partial','charge','duplicate','id','overfull'}) do
+    reset(); wraithEvent('Wraith charges','whispering',4); beginWraiths()
+    if bad=='partial' then wraithRow('Whispering','Yes','387609','1','---','here')
+    elseif bad=='duplicate' then
+      wraithRow('Whispering','Yes','387609','1','---','here'); wraithRow('Whispering','Yes')
+      emptyWraithRows({whispering=true})
+    elseif bad=='id' then
+      wraithRow('Whispering','Yes','387609','1','---','here'); wraithRow('Vigorous','Yes','387609','2','---','here')
+      emptyWraithRows({whispering=true,vigorous=true})
+    elseif bad=='overfull' then
+      for i,kind in ipairs(wraithTypes) do
+        wraithRow(kind:sub(1,1):upper()..kind:sub(2),'Yes',i<=5 and tostring(100+i) or nil,i<=5 and '1' or nil,'---',i<=5 and 'here' or nil)
+      end
+    else
+      wraithRow('Whispering','Yes','387609','6','---','here'); emptyWraithRows({whispering=true})
+    end
+    dem.onPrompt(); eq(dem.nightfall.wraiths.whispering.charges,4)
+    eq(dem.nightfall.wraiths.vigorous.present,nil)
+  end
+end)
+
+test('newer wraith lifecycle and charge events survive an older snapshot row', function()
+  reset(); beginWraiths()
+  wraithRow('Whispering','Yes','387609','1','---','here')
+  wraithEvent('Wraith charges','whispering',3)
+  emptyWraithRows({whispering=true}); dem.onPrompt()
+  eq(dem.nightfall.wraiths.whispering.charges,3)
+  beginWraiths(); wraithRow('Whispering','Yes','387609','1','---','here')
+  wraithEvent('Wraith vanished','whispering'); emptyWraithRows({whispering=true}); dem.onPrompt()
+  eq(dem.nightfall.wraiths.whispering.present,false); eq(dem.nightfall.wraiths.whispering.id,nil)
+end)
+
+test('wraith state and partial snapshots reset on death connection and reload', function()
+  for _,kind in ipairs({'death','connection','reload'}) do
+    reset(); wraithEvent('Wraith charges','vigorous',5); beginWraiths(); wraithRow('Whispering','Yes','387609','1','---','here')
+    if kind=='death' then vitals({hp='0'})
+    elseif kind=='connection' then raiseEvent('sysDisconnectionEvent')
+    else DEMONIC_TEST_LOAD() end
+    emptyWraithRows({whispering=true}); dem.onPrompt()
+    for _,name in ipairs(wraithTypes) do eq(dem.nightfall.wraiths[name].present,nil); eq(dem.nightfall.wraiths[name].charges,nil) end
+  end
+end)
+
+test('Vitality consumption and cooldown block automatic recasts until a successful activation', function()
+  reset(); vitals()
+  for _,name in ipairs({'Summoned ouroboros','Demon armor','Demon regeneration','Soulmask','Syphoning on','Vitality activated'}) do DEMONIC_TEST_CLASS_TRIGGER(name) end
+  DEMONIC_TEST_CLASS_TRIGGER('Vitality consumed'); DEMONIC_TEST_CLASS_TRIGGER('Vitality consumed')
+  eq(dem.defences.active.vitality,false); eq(dem.defences.vitalityCooldown,true)
+  dem.defences.toggle(); dem.onPrompt(); eq(commands[#commands],'nightfall')
+  confirmDefence('Nightfall defence'); dem.balances.taken('eq'); dem.balances.recovered('eq'); dem.onPrompt()
+  local count=#commands; tick(40); dem.onPrompt(); eq(#commands,count)
+  DEMONIC_TEST_CLASS_TRIGGER('Vitality activated'); eq(dem.defences.active.vitality,true); eq(dem.defences.vitalityCooldown,false)
+end)
+
+test('Vitality cooldown refusal affects only its owned action and preserves observed recovery', function()
+  reset(); start(); local attack=dem.balances.action
+  DEMONIC_TEST_CLASS_TRIGGER('Vitality cooldown'); eq(dem.balances.action,attack); assert(dem.hunt.enabled)
+  for _,lost in ipairs({false,true}) do
+    reset(); vitals()
+    for _,name in ipairs({'Summoned ouroboros','Demon armor','Demon regeneration','Soulmask','Syphoning on'}) do DEMONIC_TEST_CLASS_TRIGGER(name) end
+    dem.defences.toggle(); dem.onPrompt(); eq(sent[1],'trace vitality me')
+    local action=dem.balances.action
+    if lost then dem.balances.taken('bal') end
+    DEMONIC_TEST_CLASS_TRIGGER('Vitality cooldown')
+    if lost then eq(dem.balances.action,action); dem.balances.recovered('bal') end
+    eq(dem.balances.action,nil)
+    if not lost then eq(dem.balances.bal,false); dem.balances.recovered('bal') end
+    dem.onPrompt(); eq(commands[#commands],'nightfall'); eq(dem.defences.vitalityCooldown,true)
+  end
+end)
+
+test('ddef attempts Vitality once during cooldown then proceeds only after a fresh ready prompt', function()
+  reset(); dem.onPrompt('Health:363 Mana:372 (eb)'); DEMONIC_TEST_DEFS_ALIAS()
+  for _=1,5 do dem.onPrompt('Health:363 Mana:372 (eb)') end
+  eq(commands[6],'trace vitality me'); local action=dem.balances.action
+  DEMONIC_TEST_CLASS_TRIGGER('Vitality cooldown'); tick(0); eq(dem.balances.action,action); eq(#commands,6)
+  dem.onPrompt('Health:363 Mana:372'); eq(#commands,6)
+  dem.onPrompt('Health:363 Mana:372 (eb)'); eq(commands[7],'nightfall')
+  DEMONIC_TEST_CLASS_TRIGGER('Vitality cooldown'); eq(dem.balances.action.defence,'nightfall')
+  dem.onPrompt('Health:363 Mana:372 (eb)'); assert(not dem.defences.enabled)
+end)
+
+test('actual supplied hunting log executes generated wraith patterns with captured types and counts', function()
+  reset(); DEMONIC_TEST_WRAITH_LOG()
+  local w=dem.nightfall.wraiths
+  eq(w.vigorous.present,true); eq(w.vigorous.charges,0)
+  eq(w.whispering.present,false); eq(w.whispering.charges,nil)
+  eq(w.reflective.present,false); eq(w.reflective.charges,nil)
+  eq(w.translucent.present,nil); eq(#commands,0); eq(#gmcpSent,0)
+end)
+
+test('unknown wraith types and invalid charge observations do not mutate tracked state', function()
+  reset(); wraithEvent('Wraith charges','vigorous',3)
+  for _,count in ipairs({-1,6,1.5,math.huge}) do wraithEvent('Wraith charges','vigorous',count) end
+  eq(dem.nightfall.wraiths.vigorous.charges,3)
+  wraithEvent('Wraith materialised','imaginary'); wraithEvent('Wraith charges','imaginary',1)
+  eq(dem.nightfall.wraiths.imaginary,nil); eq(#commands,0)
+end)
+
+for _,cut in ipairs({'after Enabled','after Charges'}) do
+  test('truncated WRAITHS row '..cut..' preserves the complete previous observation', function()
+    reset(); beginWraiths(); wraithRow('Whispering','Yes','387609','4','Aeden','a dark cavern')
+    emptyWraithRows({whispering=true}); dem.onPrompt()
+    beginWraiths()
+    local truncated=cut=='after Enabled' and 'Whispering    Yes'
+      or string.format('%-14s%-11s%-10s%s','Whispering','Yes','387609','1')
+    DEMONIC_TEST_CLASS_TRIGGER('Wraith status row',truncated)
+    emptyWraithRows({whispering=true}); dem.onPrompt()
+    local w=dem.nightfall.wraiths.whispering
+    eq(w.present,true); eq(w.id,'387609'); eq(w.charges,4)
+    eq(w.target,'Aeden'); eq(w.location,'a dark cavern')
+  end)
+end
+
+test('a cooldown refusal cannot retire an already confirmed Vitality before its real recovery', function()
+  reset(); vitals()
+  local action={kind='defence',defence='vitality',resource='bal',started=dem.now()}
+  assert(dem.balances.beginAction(action))
+  DEMONIC_TEST_CLASS_TRIGGER('Vitality activated'); assert(action.confirmed)
+  DEMONIC_TEST_CLASS_TRIGGER('Vitality cooldown')
+  eq(dem.balances.action,action); assert(not action.rejected); assert(not action.completed)
+  eq(dem.defences.active.vitality,true)
+  dem.balances.taken('bal'); eq(dem.balances.action,action)
+  dem.balances.recovered('bal'); eq(dem.balances.action,nil)
+end)
+
 for _, t in ipairs(tests) do
   local ok, err = pcall(t[2])
   if ok then passed=passed+1; print('PASS '..t[1])

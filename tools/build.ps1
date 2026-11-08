@@ -143,6 +143,18 @@ foreach ($entry in $classTriggers) {
     $active = $entry[4].ToString().ToLowerInvariant()
     Add-Trigger $entry[0] $entry[1] $pattern ('dem.defences.setActive("{0}", {1})' -f $entry[3], $active)
 }
+Add-Trigger $ritualism 'Vitality consumed' '^Your beaten body suddenly starts glowing brightly as the symbol of vitality takes effect\.$' 'dem.defences.onVitalityConsumed()'
+Add-Trigger $ritualism 'Vitality cooldown' '^You cannot use the Anae-antarea symbol again so soon\.$' 'dem.defences.onVitalityCooldown()'
+
+$wraiths = Get-Group '//TriggerPackage/TriggerGroup[name="Diabolist"]/TriggerGroup[name="Nightfall"]/TriggerGroup[name="Wraiths"]'
+$types = 'vigorous|whispering|translucent|fiery|midnight|glowing|reflective|ethereal'
+# Materialisation can end before "blurry." on a server-wrapped line.
+Add-Trigger $wraiths 'Wraith materialised' ('^A (' + $types + ') wraith suddenly materialises out of thin air next to you, its shape unfocused and(?: blurry\.)?\s*$') 'dem.nightfall.onMaterialised(matches[2])'
+Add-Trigger $wraiths 'Wraith charges' ('^A (' + $types + ') wraith now has ([0-5]) charges?\.$') 'dem.nightfall.onCharges(matches[2], matches[3])'
+Add-Trigger $wraiths 'Wraith lost charges' ('^A (' + $types + ') wraith has lost its accumulated charges\.$') 'dem.nightfall.onLostCharges(matches[2])'
+Add-Trigger $wraiths 'Wraith vanished' ('^Your (' + $types + ') wraith freezes in mid-air for a moment, then disappears with a silent ''pop''\.$') 'dem.nightfall.onVanished(matches[2])'
+Add-Trigger $wraiths 'Wraith status header' '^\s*Type\s+Enabled\s+ID\s+Charges\s+Target\s+Location\s*$' 'dem.nightfall.beginSnapshot(line)'
+Add-Trigger $wraiths 'Wraith status row' ('^(?i:' + $types + ')\s+(?:Yes|No)\s+.*$') 'dem.nightfall.onSnapshotRow(line)'
 
 $settings = [Xml.XmlWriterSettings]::new()
 $settings.Indent = $true

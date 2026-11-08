@@ -29,7 +29,7 @@ local function readiness(kind, ready, explicitRecovery)
       balances.action.lost = true
     elseif ready == true and (explicitRecovery or balances.action.lost) then
       balances.action.recovered = true
-      if balances.action.kind ~= 'defence' or balances.action.confirmed then release() end
+      if balances.action.kind ~= 'defence' or balances.action.confirmed or balances.action.refused then release() end
     end
   end
 end
@@ -138,6 +138,21 @@ function balances.rejectAction(action)
   -- exactly as observed; in particular do not undo beginAction's pessimism.
   action.rejected = true
   release()
+  return true
+end
+
+function balances.refuseDefence(action)
+  if balances.action ~= action or action.kind ~= 'defence' then return false end
+  -- An accepted activation can precede its loss packet. A later refusal cannot
+  -- retire that confirmed action or cancel the recovery it still owns.
+  if action.confirmed then return false end
+  action.rejected = true
+  -- Manual passes still require their fresh ready prompt before advancing.
+  if action.manualPass then return true end
+  if not action.lost then return balances.rejectAction(action) end
+  -- A refusal must not erase an observed loss, even if its text is late.
+  action.refused = true
+  if action.recovered and balances[action.resource] == true then release() end
   return true
 end
 

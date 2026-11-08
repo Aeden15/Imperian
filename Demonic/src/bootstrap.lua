@@ -3,12 +3,14 @@ function dem.onPrompt(text)
   dem.cancel('hunt-step')
   dem.runtime.promptSerial = (dem.runtime.promptSerial or 0) + 1
   if text then dem.balances.parsePrompt(text) end
+  dem.nightfall.finishSnapshot()
   dem.balances.onPrompt()
   dem.step()
   dem.balances.endPrompt()
 end
 
 function dem.resetConnection(event)
+  dem.nightfall.resetWraiths()
   dem.defences.reset('Connection changed; type ddef to run the defence sequence again.')
   dem.hunt.stop('Connection changed; type hunt to enable again.')
   dem.hunt.lastAction = nil
@@ -19,6 +21,7 @@ function dem.resetConnection(event)
 end
 
 function dem.onDeath()
+  dem.nightfall.resetWraiths()
   dem.defences.reset('You are dead.')
   dem.hunt.stop('You are dead.')
   dem.hunt.lastAction = nil

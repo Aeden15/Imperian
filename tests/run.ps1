@@ -27,7 +27,7 @@ $preserved = $package.Clone()
 $owned = @{
     Script = @($sourceFiles.Keys)
     Alias = @('Hunt mode','Hunt add','Hunt remove','Hunt list','Hunt status','Hunt limits','Targeting','Show room GUI','Hide room GUI','Reset room GUI','Defs')
-    Trigger = @('Balance loss duration','Equilibrium loss duration','Balance regained','Equilibrium regained','Balance unavailable','Equilibrium unavailable','Prompt readiness','Denizen slain','Target absent','Grace blocks attack','Vitality activated','Demon regeneration','Demon armor','Missing ouroboros','Summoned ouroboros','Soulmask','Syphon ceased','Syphoning on','Nightfall defence','Nightfall cease')
+    Trigger = @('Balance loss duration','Equilibrium loss duration','Balance regained','Equilibrium regained','Balance unavailable','Equilibrium unavailable','Prompt readiness','Denizen slain','Target absent','Grace blocks attack','Vitality activated','Demon regeneration','Demon armor','Missing ouroboros','Summoned ouroboros','Soulmask','Syphon ceased','Syphoning on','Nightfall defence','Nightfall cease','Vitality consumed','Vitality cooldown','Wraith materialised','Wraith charges','Wraith lost charges','Wraith vanished','Wraith status header','Wraith status row')
 }
 foreach ($tag in $owned.Keys) {
     foreach ($node in @($preserved.SelectNodes(('//' + $tag)))) {
@@ -51,7 +51,7 @@ if ($lastScript.LocalName -cne 'Script' -or $lastScript.SelectSingleNode('name')
 }
 $config = Get-Content -LiteralPath (Join-Path $root 'Demonic/config.lua') -Raw
 if ($config -cnotmatch '(?m)^created = "2026-11-07T16:29:35-06:00"\r?$') { throw 'Export creation timestamp was not preserved.' }
-if ($config -cnotmatch '(?m)^mpackage = \[\[Demonic\]\]\r?$' -or $config -cnotmatch '(?m)^version = \[\[0\.1\.10\]\]\r?$' -or $config -cnotmatch '(?s)description = \[\[Shared targeting.+?\]\]') {
+if ($config -cnotmatch '(?m)^mpackage = \[\[Demonic\]\]\r?$' -or $config -cnotmatch '(?m)^version = \[\[0\.1\.11\]\]\r?$' -or $config -cnotmatch '(?s)description = \[\[Shared targeting.+?\]\]') {
     throw 'Package version or description is missing.'
 }
 foreach ($name in $sourceFiles.Keys) {
@@ -211,11 +211,24 @@ try {
         if (!$entry[1]) { throw ('Missing entry for ' + $entry[0]) }
         $chunks.Add(('function {0}() line=""; matches={{}}; return assert((loadstring or load)([====[{1}]====],"actual alias/trigger"))() end' -f $entry[0],$entry[1].script))
     }
-    $chunks.Add('function DEMONIC_TEST_CLASS_TRIGGER(name)')
+    $chunks.Add('function DEMONIC_TEST_CLASS_TRIGGER(name, text, ...) line=text or ""; matches={line,...}')
     foreach ($node in $package.SelectNodes('//TriggerPackage/TriggerGroup[name="Diabolist"]//Trigger')) {
         $chunks.Add(('if name == [====[{0}]====] then return assert((loadstring or load)([====[{1}]====],"class trigger"))() end' -f $node.name,$node.script))
     }
     $chunks.Add('error("Unknown class trigger: " .. tostring(name)) end')
+    # Match the supplied log with the generated regexes, then execute their actual
+    # Lua bodies and captures. Only Mudlet's native regex engine is substituted.
+    $chunks.Add('function DEMONIC_TEST_WRAITH_LOG()')
+    $wraithFolder = $package.SelectSingleNode('//TriggerPackage/TriggerGroup[name="Diabolist"]/TriggerGroup[name="Nightfall"]/TriggerGroup[name="Wraiths"]')
+    foreach ($text in Get-Content -LiteralPath (Join-Path $PSScriptRoot 'fixtures/wraith-events.txt')) {
+        foreach ($trigger in $wraithFolder.SelectNodes('Trigger')) {
+            $hit = [regex]::Match($text, $trigger.regexCodeList.string)
+            if (!$hit.Success) { continue }
+            $captures = @($hit.Groups | ForEach-Object { '[====[' + $_.Value + ']====]' }) -join ','
+            $chunks.Add(('line=[====[{0}]====]; matches={{{1}}}; assert((loadstring or load)([====[{2}]====],"log trigger"))()' -f $text,$captures,$trigger.script))
+        }
+    }
+    $chunks.Add('end')
     $chunks.Add('function DEMONIC_TEST_GUI_ALIAS(command)')
     foreach ($command in $guiContracts.Keys) {
         $node = $guiFolder.SelectSingleNode(('Alias[name="{0}"]' -f $guiContracts[$command][0]))

@@ -52,6 +52,46 @@
 						<integer>1</integer>
 					</regexCodePropertyList>
 				</Trigger>
+				<Trigger isActive="yes" isFolder="no" isTempTrigger="no" isMultiline="no" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
+					<name>Vitality consumed</name>
+					<script>dem.defences.onVitalityConsumed()</script>
+					<triggerType>0</triggerType>
+					<conditonLineDelta>0</conditonLineDelta>
+					<mStayOpen>0</mStayOpen>
+					<mCommand />
+					<packageName />
+					<mFgColor>#ff0000</mFgColor>
+					<mBgColor>#ffff00</mBgColor>
+					<mSoundFile />
+					<colorTriggerFgColor>#000000</colorTriggerFgColor>
+					<colorTriggerBgColor>#000000</colorTriggerBgColor>
+					<regexCodeList>
+						<string>^Your beaten body suddenly starts glowing brightly as the symbol of vitality takes effect\.$</string>
+					</regexCodeList>
+					<regexCodePropertyList>
+						<integer>1</integer>
+					</regexCodePropertyList>
+				</Trigger>
+				<Trigger isActive="yes" isFolder="no" isTempTrigger="no" isMultiline="no" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
+					<name>Vitality cooldown</name>
+					<script>dem.defences.onVitalityCooldown()</script>
+					<triggerType>0</triggerType>
+					<conditonLineDelta>0</conditonLineDelta>
+					<mStayOpen>0</mStayOpen>
+					<mCommand />
+					<packageName />
+					<mFgColor>#ff0000</mFgColor>
+					<mBgColor>#ffff00</mBgColor>
+					<mSoundFile />
+					<colorTriggerFgColor>#000000</colorTriggerFgColor>
+					<colorTriggerBgColor>#000000</colorTriggerBgColor>
+					<regexCodeList>
+						<string>^You cannot use the Anae-antarea symbol again so soon\.$</string>
+					</regexCodeList>
+					<regexCodePropertyList>
+						<integer>1</integer>
+					</regexCodePropertyList>
+				</Trigger>
 			</TriggerGroup>
 			<TriggerGroup isActive="yes" isFolder="yes" isTempTrigger="no" isMultiline="no" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
 				<name>Malignosis</name>
@@ -240,6 +280,142 @@
 				<colorTriggerBgColor>#000000</colorTriggerBgColor>
 				<regexCodeList />
 				<regexCodePropertyList />
+				<TriggerGroup isActive="yes" isFolder="yes" isTempTrigger="no" isMultiline="no" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
+					<name>Wraiths</name>
+					<script />
+					<triggerType>0</triggerType>
+					<conditonLineDelta>0</conditonLineDelta>
+					<mStayOpen>0</mStayOpen>
+					<mCommand />
+					<packageName />
+					<mFgColor>#ff0000</mFgColor>
+					<mBgColor>#ffff00</mBgColor>
+					<mSoundFile />
+					<colorTriggerFgColor>#000000</colorTriggerFgColor>
+					<colorTriggerBgColor>#000000</colorTriggerBgColor>
+					<regexCodeList />
+					<regexCodePropertyList />
+					<Trigger isActive="yes" isFolder="no" isTempTrigger="no" isMultiline="no" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
+						<name>Wraith materialised</name>
+						<script>dem.nightfall.onMaterialised(matches[2])</script>
+						<triggerType>0</triggerType>
+						<conditonLineDelta>0</conditonLineDelta>
+						<mStayOpen>0</mStayOpen>
+						<mCommand />
+						<packageName />
+						<mFgColor>#ff0000</mFgColor>
+						<mBgColor>#ffff00</mBgColor>
+						<mSoundFile />
+						<colorTriggerFgColor>#000000</colorTriggerFgColor>
+						<colorTriggerBgColor>#000000</colorTriggerBgColor>
+						<regexCodeList>
+							<string>^A (vigorous|whispering|translucent|fiery|midnight|glowing|reflective|ethereal) wraith suddenly materialises out of thin air next to you, its shape unfocused and(?: blurry\.)?\s*$</string>
+						</regexCodeList>
+						<regexCodePropertyList>
+							<integer>1</integer>
+						</regexCodePropertyList>
+					</Trigger>
+					<Trigger isActive="yes" isFolder="no" isTempTrigger="no" isMultiline="no" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
+						<name>Wraith charges</name>
+						<script>dem.nightfall.onCharges(matches[2], matches[3])</script>
+						<triggerType>0</triggerType>
+						<conditonLineDelta>0</conditonLineDelta>
+						<mStayOpen>0</mStayOpen>
+						<mCommand />
+						<packageName />
+						<mFgColor>#ff0000</mFgColor>
+						<mBgColor>#ffff00</mBgColor>
+						<mSoundFile />
+						<colorTriggerFgColor>#000000</colorTriggerFgColor>
+						<colorTriggerBgColor>#000000</colorTriggerBgColor>
+						<regexCodeList>
+							<string>^A (vigorous|whispering|translucent|fiery|midnight|glowing|reflective|ethereal) wraith now has ([0-5]) charges?\.$</string>
+						</regexCodeList>
+						<regexCodePropertyList>
+							<integer>1</integer>
+						</regexCodePropertyList>
+					</Trigger>
+					<Trigger isActive="yes" isFolder="no" isTempTrigger="no" isMultiline="no" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
+						<name>Wraith lost charges</name>
+						<script>dem.nightfall.onLostCharges(matches[2])</script>
+						<triggerType>0</triggerType>
+						<conditonLineDelta>0</conditonLineDelta>
+						<mStayOpen>0</mStayOpen>
+						<mCommand />
+						<packageName />
+						<mFgColor>#ff0000</mFgColor>
+						<mBgColor>#ffff00</mBgColor>
+						<mSoundFile />
+						<colorTriggerFgColor>#000000</colorTriggerFgColor>
+						<colorTriggerBgColor>#000000</colorTriggerBgColor>
+						<regexCodeList>
+							<string>^A (vigorous|whispering|translucent|fiery|midnight|glowing|reflective|ethereal) wraith has lost its accumulated charges\.$</string>
+						</regexCodeList>
+						<regexCodePropertyList>
+							<integer>1</integer>
+						</regexCodePropertyList>
+					</Trigger>
+					<Trigger isActive="yes" isFolder="no" isTempTrigger="no" isMultiline="no" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
+						<name>Wraith vanished</name>
+						<script>dem.nightfall.onVanished(matches[2])</script>
+						<triggerType>0</triggerType>
+						<conditonLineDelta>0</conditonLineDelta>
+						<mStayOpen>0</mStayOpen>
+						<mCommand />
+						<packageName />
+						<mFgColor>#ff0000</mFgColor>
+						<mBgColor>#ffff00</mBgColor>
+						<mSoundFile />
+						<colorTriggerFgColor>#000000</colorTriggerFgColor>
+						<colorTriggerBgColor>#000000</colorTriggerBgColor>
+						<regexCodeList>
+							<string>^Your (vigorous|whispering|translucent|fiery|midnight|glowing|reflective|ethereal) wraith freezes in mid-air for a moment, then disappears with a silent 'pop'\.$</string>
+						</regexCodeList>
+						<regexCodePropertyList>
+							<integer>1</integer>
+						</regexCodePropertyList>
+					</Trigger>
+					<Trigger isActive="yes" isFolder="no" isTempTrigger="no" isMultiline="no" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
+						<name>Wraith status header</name>
+						<script>dem.nightfall.beginSnapshot(line)</script>
+						<triggerType>0</triggerType>
+						<conditonLineDelta>0</conditonLineDelta>
+						<mStayOpen>0</mStayOpen>
+						<mCommand />
+						<packageName />
+						<mFgColor>#ff0000</mFgColor>
+						<mBgColor>#ffff00</mBgColor>
+						<mSoundFile />
+						<colorTriggerFgColor>#000000</colorTriggerFgColor>
+						<colorTriggerBgColor>#000000</colorTriggerBgColor>
+						<regexCodeList>
+							<string>^\s*Type\s+Enabled\s+ID\s+Charges\s+Target\s+Location\s*$</string>
+						</regexCodeList>
+						<regexCodePropertyList>
+							<integer>1</integer>
+						</regexCodePropertyList>
+					</Trigger>
+					<Trigger isActive="yes" isFolder="no" isTempTrigger="no" isMultiline="no" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
+						<name>Wraith status row</name>
+						<script>dem.nightfall.onSnapshotRow(line)</script>
+						<triggerType>0</triggerType>
+						<conditonLineDelta>0</conditonLineDelta>
+						<mStayOpen>0</mStayOpen>
+						<mCommand />
+						<packageName />
+						<mFgColor>#ff0000</mFgColor>
+						<mBgColor>#ffff00</mBgColor>
+						<mSoundFile />
+						<colorTriggerFgColor>#000000</colorTriggerFgColor>
+						<colorTriggerBgColor>#000000</colorTriggerBgColor>
+						<regexCodeList>
+							<string>^(?i:vigorous|whispering|translucent|fiery|midnight|glowing|reflective|ethereal)\s+(?:Yes|No)\s+.*$</string>
+						</regexCodeList>
+						<regexCodePropertyList>
+							<integer>1</integer>
+						</regexCodePropertyList>
+					</Trigger>
+				</TriggerGroup>
 				<Trigger isActive="yes" isFolder="no" isTempTrigger="no" isMultiline="no" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
 					<name>Nightfall defence</name>
 					<script>dem.defences.setActive("nightfall", true)</script>
@@ -934,7 +1110,7 @@ local function readiness(kind, ready, explicitRecovery)
       balances.action.lost = true
     elseif ready == true and (explicitRecovery or balances.action.lost) then
       balances.action.recovered = true
-      if balances.action.kind ~= 'defence' or balances.action.confirmed then release() end
+      if balances.action.kind ~= 'defence' or balances.action.confirmed or balances.action.refused then release() end
     end
   end
 end
@@ -1043,6 +1219,21 @@ function balances.rejectAction(action)
   -- exactly as observed; in particular do not undo beginAction's pessimism.
   action.rejected = true
   release()
+  return true
+end
+
+function balances.refuseDefence(action)
+  if balances.action ~= action or action.kind ~= 'defence' then return false end
+  -- An accepted activation can precede its loss packet. A later refusal cannot
+  -- retire that confirmed action or cancel the recovery it still owns.
+  if action.confirmed then return false end
+  action.rejected = true
+  -- Manual passes still require their fresh ready prompt before advancing.
+  if action.manualPass then return true end
+  if not action.lost then return balances.rejectAction(action) end
+  -- A refusal must not erase an observed loss, even if its text is late.
+  action.refused = true
+  if action.recovered and balances[action.resource] == true then release() end
   return true
 end
 
@@ -2330,6 +2521,7 @@ end
 function defences.reset(reason)
   defences.stop(reason)
   defences.active = {}
+  defences.vitalityCooldown = nil
   dem.cancel('defence-watchdog')
 end
 
@@ -2363,6 +2555,7 @@ function defences.setActive(name, active)
   end
   if not known or type(active) ~= 'boolean' then return false end
   defences.active[name] = active
+  if name == 'vitality' and active then defences.vitalityCooldown = false end
   if name == 'ouroboros' and not active then
     for _, dependent in ipairs({'armor', 'regeneration', 'soulmask', 'syphon'}) do
       defences.active[dependent] = false
@@ -2374,6 +2567,20 @@ function defences.setActive(name, active)
   end
   dem.schedule()
   return true
+end
+
+function defences.onVitalityConsumed()
+  defences.vitalityCooldown = true
+  defences.setActive('vitality', false)
+end
+
+function defences.onVitalityCooldown()
+  defences.vitalityCooldown = true
+  local action = dem.balances.action
+  if action and action.kind == 'defence' and action.defence == 'vitality' then
+    dem.balances.refuseDefence(action)
+  end
+  dem.schedule()
 end
 
 local function finite(n)
@@ -2439,7 +2646,7 @@ function defences.step()
     defences.reason = 'Waiting for balance, equilibrium, standing and unstunned status.'; return
   end
   for _, entry in ipairs(dem.diabolist.defences) do
-    if not defences.active[entry.name] then
+    if not defences.active[entry.name] and (entry.name ~= 'vitality' or not defences.vitalityCooldown) then
       if entry.mana and v.mp &lt; entry.mana then
         defences.reason = 'Waiting for enough mana for ' .. entry.name .. '.'; return
       end
@@ -2447,7 +2654,8 @@ function defences.step()
       return
     end
   end
-  defences.reason = 'All listed defences are confirmed active.'
+  defences.reason = defences.vitalityCooldown and 'Vitality is unavailable; other listed defences are confirmed active.'
+    or 'All listed defences are confirmed active.'
 end
 </script>
 					<eventHandlerList />
@@ -2461,7 +2669,135 @@ end
 				<Script isActive="yes" isFolder="no">
 					<name>Nightfall Commands</name>
 					<packageName></packageName>
-					<script>dem.nightfall = {}
+					<script>dem.nightfall = {
+  types = {'vigorous', 'whispering', 'translucent', 'fiery', 'midnight', 'glowing', 'reflective', 'ethereal'},
+  limits = {simultaneous = 4, charges = 5, inactivitySeconds = 30}
+}
+local nightfall = dem.nightfall
+local revisions, snapshot
+
+function nightfall.resetWraiths()
+  nightfall.wraiths, revisions, snapshot = {}, {}, nil
+  for _, kind in ipairs(nightfall.types) do
+    nightfall.wraiths[kind], revisions[kind] = {}, 0
+  end
+end
+nightfall.resetWraiths()
+
+local function changed(kind)
+  revisions[kind] = revisions[kind] + 1
+end
+
+local function clearInstance(wraith)
+  wraith.id, wraith.charges, wraith.target, wraith.location = nil, nil, nil, nil
+end
+
+function nightfall.onMaterialised(kind)
+  local wraith = nightfall.wraiths[kind]
+  if not wraith then return false end
+  if wraith.present ~= true then clearInstance(wraith) end
+  wraith.present = true
+  changed(kind)
+  return true
+end
+
+function nightfall.onCharges(kind, count)
+  local wraith = nightfall.wraiths[kind]
+  count = tonumber(count)
+  if not wraith or not count or count &lt; 0 or count &gt; nightfall.limits.charges or count % 1 ~= 0 then return false end
+  if wraith.present ~= true then clearInstance(wraith) end
+  wraith.present, wraith.charges = true, count
+  changed(kind)
+  return true
+end
+
+function nightfall.onLostCharges(kind)
+  local wraith = nightfall.wraiths[kind]
+  if not wraith then return false end
+  wraith.charges = 0
+  changed(kind)
+  return true
+end
+
+function nightfall.onVanished(kind)
+  local wraith = nightfall.wraiths[kind]
+  if not wraith then return false end
+  clearInstance(wraith)
+  wraith.present = false
+  changed(kind)
+  return true
+end
+
+function nightfall.beginSnapshot(header)
+  snapshot = nil
+  if type(header) ~= 'string' then return false end
+  local columns, previous = {}, 0
+  for i, name in ipairs({'Type', 'Enabled', 'ID', 'Charges', 'Target', 'Location'}) do
+    local start = header:find(name, previous + 1, true)
+    if not start then return false end
+    columns[i], previous = start, start
+  end
+  snapshot = {columns = columns, rows = {}, count = 0, valid = true}
+  return true
+end
+
+local function optional(value)
+  if value ~= '' and value ~= '---' then return value end
+end
+
+function nightfall.onSnapshotRow(line)
+  if not snapshot or type(line) ~= 'string' then return false end
+  local fields = {}
+  for i, start in ipairs(snapshot.columns) do
+    fields[i] = dem.trim(line:sub(start, snapshot.columns[i + 1] and snapshot.columns[i + 1] - 1 or #line))
+  end
+  local kind = fields[1]:lower()
+  if not nightfall.wraiths[kind] or snapshot.rows[kind] or (fields[2] ~= 'Yes' and fields[2] ~= 'No') then
+    snapshot.valid = false; return false
+  end
+  local row = {enabled = fields[2] == 'Yes', revision = revisions[kind]}
+  -- Missing columns are not an explicit absent-instance marker.
+  if fields[3] == '' then snapshot.valid = false; return false end
+  local id = optional(fields[3])
+  if id then
+    local charges = tonumber(fields[4])
+    if fields[6] == '' or not id:match('^%d+$') or id:match('^0+$') or not charges or charges &lt; 0
+        or charges &gt; nightfall.limits.charges or charges % 1 ~= 0 then
+      snapshot.valid = false; return false
+    end
+    row.present, row.id, row.charges = true, id, charges
+    row.target, row.location = optional(fields[5]), optional(fields[6])
+  else
+    if optional(fields[4]) or optional(fields[5]) or optional(fields[6]) then snapshot.valid = false; return false end
+    row.present = false
+  end
+  snapshot.rows[kind], snapshot.count = row, snapshot.count + 1
+  return true
+end
+
+function nightfall.finishSnapshot()
+  local capture = snapshot
+  snapshot = nil
+  if not capture or not capture.valid or capture.count ~= #nightfall.types then return false end
+  local ids, present = {}, 0
+  for _, row in pairs(capture.rows) do
+    if row.id then
+      if ids[row.id] then return false end
+      ids[row.id], present = true, present + 1
+    end
+  end
+  if present &gt; nightfall.limits.simultaneous then return false end
+  for kind, row in pairs(capture.rows) do
+    -- A later live message owns its type even when an older table row exists.
+    if revisions[kind] == row.revision then
+      local wraith = nightfall.wraiths[kind]
+      wraith.enabled, wraith.present = row.enabled, row.present
+      wraith.id, wraith.charges, wraith.target, wraith.location = row.id, row.charges, row.target, row.location
+      changed(kind)
+    end
+  end
+  return true
+end
 
 function dem.nightfall.buildDefence(name)
   if name == 'nightfall' then return 'nightfall' end
@@ -2479,12 +2815,14 @@ function dem.onPrompt(text)
   dem.cancel('hunt-step')
   dem.runtime.promptSerial = (dem.runtime.promptSerial or 0) + 1
   if text then dem.balances.parsePrompt(text) end
+  dem.nightfall.finishSnapshot()
   dem.balances.onPrompt()
   dem.step()
   dem.balances.endPrompt()
 end
 
 function dem.resetConnection(event)
+  dem.nightfall.resetWraiths()
   dem.defences.reset('Connection changed; type ddef to run the defence sequence again.')
   dem.hunt.stop('Connection changed; type hunt to enable again.')
   dem.hunt.lastAction = nil
@@ -2495,6 +2833,7 @@ function dem.resetConnection(event)
 end
 
 function dem.onDeath()
+  dem.nightfall.resetWraiths()
   dem.defences.reset('You are dead.')
   dem.hunt.stop('You are dead.')
   dem.hunt.lastAction = nil

@@ -26,6 +26,7 @@ end
 function defences.reset(reason)
   defences.stop(reason)
   defences.active = {}
+  defences.vitalityCooldown = nil
   dem.cancel('defence-watchdog')
 end
 
@@ -59,6 +60,7 @@ function defences.setActive(name, active)
   end
   if not known or type(active) ~= 'boolean' then return false end
   defences.active[name] = active
+  if name == 'vitality' and active then defences.vitalityCooldown = false end
   if name == 'ouroboros' and not active then
     for _, dependent in ipairs({'armor', 'regeneration', 'soulmask', 'syphon'}) do
       defences.active[dependent] = false
@@ -70,6 +72,20 @@ function defences.setActive(name, active)
   end
   dem.schedule()
   return true
+end
+
+function defences.onVitalityConsumed()
+  defences.vitalityCooldown = true
+  defences.setActive('vitality', false)
+end
+
+function defences.onVitalityCooldown()
+  defences.vitalityCooldown = true
+  local action = dem.balances.action
+  if action and action.kind == 'defence' and action.defence == 'vitality' then
+    dem.balances.refuseDefence(action)
+  end
+  dem.schedule()
 end
 
 local function finite(n)
@@ -135,7 +151,7 @@ function defences.step()
     defences.reason = 'Waiting for balance, equilibrium, standing and unstunned status.'; return
   end
   for _, entry in ipairs(dem.diabolist.defences) do
-    if not defences.active[entry.name] then
+    if not defences.active[entry.name] and (entry.name ~= 'vitality' or not defences.vitalityCooldown) then
       if entry.mana and v.mp < entry.mana then
         defences.reason = 'Waiting for enough mana for ' .. entry.name .. '.'; return
       end
@@ -143,5 +159,6 @@ function defences.step()
       return
     end
   end
-  defences.reason = 'All listed defences are confirmed active.'
+  defences.reason = defences.vitalityCooldown and 'Vitality is unavailable; other listed defences are confirmed active.'
+    or 'All listed defences are confirmed active.'
 end
