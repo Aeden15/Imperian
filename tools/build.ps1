@@ -145,6 +145,7 @@ foreach ($entry in $classTriggers) {
 }
 Add-Trigger $ritualism 'Vitality consumed' '^Your beaten body suddenly starts glowing brightly as the symbol of vitality takes effect\.$' 'dem.defences.onVitalityConsumed()'
 Add-Trigger $ritualism 'Vitality cooldown' '^You cannot use the Anae-antarea symbol again so soon\.$' 'dem.defences.onVitalityCooldown()'
+Add-Trigger $ritualism 'Vitality ready' '^You can again use the Anae-Antarea symbol\.$' 'dem.defences.onVitalityReady()'
 
 $wraiths = Get-Group '//TriggerPackage/TriggerGroup[name="Diabolist"]/TriggerGroup[name="Nightfall"]/TriggerGroup[name="Wraiths"]'
 $types = 'vigorous|whispering|translucent|fiery|midnight|glowing|reflective|ethereal'

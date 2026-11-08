@@ -11,6 +11,7 @@ $fixtures = @{
     'Vitality activated' = 'You sketch the Anae-antarea symbol in the air, and a feeling of anticipation fills the air as a glow surrounds you momentarily.'
     'Vitality consumed' = 'Your beaten body suddenly starts glowing brightly as the symbol of vitality takes effect.'
     'Vitality cooldown' = 'You cannot use the Anae-antarea symbol again so soon.'
+    'Vitality ready' = 'You can again use the Anae-Antarea symbol.'
     'Demon regeneration' = 'You demand aid from your Ouroboros, and it it surrounds you with a glowing red ring.'
     'Demon armor' = 'You ask your Ouroboros for its protection, and it summons a thin black protecting sheen over you.'
     'Missing ouroboros' = 'With a disimpassioned gesture, you banish your Ouroboros back to the Pit from which it came.'
@@ -32,7 +33,7 @@ foreach ($name in $fixtures.Keys) {
 }
 if ($fixtures['Nightfall defence'] -cmatch $ceased.regexCodeList.string) { throw 'Nightfall activation also matches cessation.' }
 $ritualismFolder = $package.SelectSingleNode('//TriggerPackage/TriggerGroup[name="Diabolist"]/TriggerGroup[name="Ritualism"]')
-foreach ($name in @('Vitality consumed','Vitality cooldown')) {
+foreach ($name in @('Vitality consumed','Vitality cooldown','Vitality ready')) {
     if (!$ritualismFolder.SelectSingleNode(('Trigger[name="{0}"]' -f $name))) { throw ('Misplaced trigger: ' + $name) }
 }
 $wraithFolder = $package.SelectSingleNode('//TriggerPackage/TriggerGroup[name="Diabolist"]/TriggerGroup[name="Nightfall"]/TriggerGroup[name="Wraiths"]')

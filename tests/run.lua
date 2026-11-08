@@ -1318,6 +1318,27 @@ test('a cooldown refusal cannot retire an already confirmed Vitality before its 
   dem.balances.recovered('bal'); eq(dem.balances.action,nil)
 end)
 
+test('Vitality ready clears only cooldown without arming the defence or granting recovery', function()
+  reset(); start(); local action,bal,eqReady=dem.balances.action,dem.balances.bal,dem.balances.eq
+  DEMONIC_TEST_CLASS_TRIGGER('Vitality consumed')
+  DEMONIC_TEST_CLASS_TRIGGER('Vitality ready'); DEMONIC_TEST_CLASS_TRIGGER('Vitality ready'); tick(0)
+  eq(dem.defences.vitalityCooldown,false); eq(dem.defences.active.vitality,false)
+  eq(dem.balances.action,action); eq(dem.balances.bal,bal); eq(dem.balances.eq,eqReady)
+  eq(#sent,1); assert(not dem.defences.enabled)
+end)
+
+test('Vitality ready allows maintenance to rearm only when normal readiness permits', function()
+  reset(); vitals()
+  for _,name in ipairs({'Summoned ouroboros','Demon armor','Demon regeneration','Soulmask','Syphoning on','Vitality activated','Nightfall defence'}) do DEMONIC_TEST_CLASS_TRIGGER(name) end
+  DEMONIC_TEST_CLASS_TRIGGER('Vitality consumed'); dem.defences.toggle(); dem.onPrompt(); eq(#sent,0)
+  dem.balances.taken('bal'); DEMONIC_TEST_CLASS_TRIGGER('Vitality ready'); tick(0); eq(#sent,0)
+  eq(dem.defences.active.vitality,false)
+  dem.balances.recovered('bal'); tick(0); eq(sent[1],'trace vitality me'); eq(#sent,1)
+  local action=dem.balances.action
+  DEMONIC_TEST_CLASS_TRIGGER('Vitality ready'); tick(0); eq(dem.balances.action,action); eq(#sent,1)
+  eq(dem.defences.active.vitality,false)
+end)
+
 for _, t in ipairs(tests) do
   local ok, err = pcall(t[2])
   if ok then passed=passed+1; print('PASS '..t[1])

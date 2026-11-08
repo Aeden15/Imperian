@@ -27,7 +27,7 @@ $preserved = $package.Clone()
 $owned = @{
     Script = @($sourceFiles.Keys)
     Alias = @('Hunt mode','Hunt add','Hunt remove','Hunt list','Hunt status','Hunt limits','Targeting','Show room GUI','Hide room GUI','Reset room GUI','Defs')
-    Trigger = @('Balance loss duration','Equilibrium loss duration','Balance regained','Equilibrium regained','Balance unavailable','Equilibrium unavailable','Prompt readiness','Denizen slain','Target absent','Grace blocks attack','Vitality activated','Demon regeneration','Demon armor','Missing ouroboros','Summoned ouroboros','Soulmask','Syphon ceased','Syphoning on','Nightfall defence','Nightfall cease','Vitality consumed','Vitality cooldown','Wraith materialised','Wraith charges','Wraith lost charges','Wraith vanished','Wraith status header','Wraith status row')
+    Trigger = @('Balance loss duration','Equilibrium loss duration','Balance regained','Equilibrium regained','Balance unavailable','Equilibrium unavailable','Prompt readiness','Denizen slain','Target absent','Grace blocks attack','Vitality activated','Demon regeneration','Demon armor','Missing ouroboros','Summoned ouroboros','Soulmask','Syphon ceased','Syphoning on','Nightfall defence','Nightfall cease','Vitality consumed','Vitality cooldown','Vitality ready','Wraith materialised','Wraith charges','Wraith lost charges','Wraith vanished','Wraith status header','Wraith status row')
 }
 foreach ($tag in $owned.Keys) {
     foreach ($node in @($preserved.SelectNodes(('//' + $tag)))) {
@@ -51,7 +51,7 @@ if ($lastScript.LocalName -cne 'Script' -or $lastScript.SelectSingleNode('name')
 }
 $config = Get-Content -LiteralPath (Join-Path $root 'Demonic/config.lua') -Raw
 if ($config -cnotmatch '(?m)^created = "2026-11-07T16:29:35-06:00"\r?$') { throw 'Export creation timestamp was not preserved.' }
-if ($config -cnotmatch '(?m)^mpackage = \[\[Demonic\]\]\r?$' -or $config -cnotmatch '(?m)^version = \[\[0\.1\.11\]\]\r?$' -or $config -cnotmatch '(?s)description = \[\[Shared targeting.+?\]\]') {
+if ($config -cnotmatch '(?m)^mpackage = \[\[Demonic\]\]\r?$' -or $config -cnotmatch '(?m)^version = \[\[0\.1\.12\]\]\r?$' -or $config -cnotmatch '(?s)description = \[\[Shared targeting.+?\]\]') {
     throw 'Package version or description is missing.'
 }
 foreach ($name in $sourceFiles.Keys) {

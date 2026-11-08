@@ -79,6 +79,11 @@ function defences.onVitalityConsumed()
   defences.setActive('vitality', false)
 end
 
+function defences.onVitalityReady()
+  defences.vitalityCooldown = false
+  dem.schedule()
+end
+
 function defences.onVitalityCooldown()
   defences.vitalityCooldown = true
   local action = dem.balances.action

@@ -10,5 +10,5 @@ Use hunt status, hunt status debug, demui show/hide/reset, and README.md for det
 Keep one installed Demonic package when upgrading.
 
 Source and usage: https://github.com/Aeden15/Imperian]]
-version = [[0.1.11]]
+version = [[0.1.12]]
 created = "2026-11-07T16:29:35-06:00"
