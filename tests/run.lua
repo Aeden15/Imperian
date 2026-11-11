@@ -12,7 +12,9 @@ local function reset(keepSettings)
   function send(s)
     raiseEvent('sysDataSendRequest',s)
     commands[#commands + 1] = s
-    if s:match('^trace ') then sent[#sent + 1] = s end
+    if s:match('^invoke combustion ') or s == 'unleash arctar at me' or s == 'touch shield' then
+      sent[#sent + 1] = s
+    end
   end
   function sendGMCP(s) gmcpSent[#gmcpSent + 1] = s end
   function cecho(s) messages[#messages + 1] = s end
@@ -99,13 +101,52 @@ local function start()
   setup(); dem.hunt.toggle(); roster(); dem.onPrompt()
 end
 local function cycle()
-  vitals({bal='0'}); dem.onPrompt(); vitals(); dem.onPrompt()
+  vitals({eq='0'}); dem.onPrompt(); vitals(); dem.onPrompt()
 end
+
+test('Summoner Hunt casts Combustion and ignores balance recovery', function()
+  reset(); start()
+  eq(commands[#commands], 'invoke combustion 1234')
+  local action = dem.balances.action
+  dem.balances.taken('bal'); dem.balances.recovered('bal'); dem.onPrompt()
+  eq(dem.balances.action, action); eq(commandCount('invoke combustion 1234'), 1)
+  dem.balances.taken('eq'); dem.balances.recovered('eq'); dem.onPrompt()
+  eq(commandCount('invoke combustion 1234'), 2)
+end)
+
+test('generated Mindseye events set and clear shared defence state', function()
+  reset()
+  DEMONIC_TEST_DEFENCE_LOG('mindseye-up')
+  eq(dem.defences.active.mindseye, true)
+  DEMONIC_TEST_DEFENCE_LOG('mindseye-down')
+  eq(dem.defences.active.mindseye, false)
+  eq(#commands, 0)
+end)
+
+test('Arctar requires a confirmation and fresh prompt, then cooldowns clear independently', function()
+  reset(); setup(); vitals({hp='40',maxhp='100'}); dem.hunt.toggle(); roster(); dem.onPrompt()
+  eq(commands[#commands], 'unleash arctar at me')
+  local action = dem.balances.action
+  dem.onPrompt('Health:40 Mana:4459 (eb)'); eq(dem.balances.action, action)
+  DEMONIC_TEST_DEFENCE_LOG('arctar-shield')
+  eq(dem.defences.active.shield, true)
+  dem.onPrompt(); eq(dem.balances.action, action)
+  dem.onPrompt('Health:40 Mana:4459 (eb)'); eq(dem.balances.action, nil)
+  DEMONIC_TEST_DEFENCE_LOG('unleash-ready')
+  DEMONIC_TEST_DEFENCE_LOG('shield-down')
+  dem.onPrompt(); eq(commands[#commands], 'touch shield')
+  DEMONIC_TEST_DEFENCE_LOG('tattoo-shield')
+  dem.balances.taken('eq'); dem.balances.recovered('eq'); dem.onPrompt()
+  eq(commandCount('touch shield'), 1)
+  DEMONIC_TEST_DEFENCE_LOG('arctar-ready')
+  DEMONIC_TEST_DEFENCE_LOG('shield-down')
+  dem.onPrompt(); eq(commandCount('unleash arctar at me'), 2)
+end)
 
 test('target references remain one unchanged string', function()
   for _, ref in ipairs({'fido','fido1234','1234'}) do
     reset(); assert(dem.targeting.setDenizen(ref)); eq(dem.target, ref)
-    eq(dem.ritualism.buildTrace({'fire','ice'}, dem.target), 'trace fire ice ' .. ref)
+    eq(dem.validReference(dem.target), ref)
   end
 end)
 test('target validation prevents command injection without changing selection', function()
@@ -116,28 +157,20 @@ test('target validation prevents command injection without changing selection', 
 end)
 test('all command joining uses the shared double ampersand separator', function()
   reset(); eq(dem.separator,'&&')
-  eq(dem.joinCommands({'stand','trace fire ice fido1234'}),'stand&&trace fire ice fido1234')
+  eq(dem.joinCommands({'stand','invoke combustion fido1234'}),'stand&&invoke combustion fido1234')
   assert(not dem.targeting.setDenizen('fido&&quit'))
 end)
-test('Duality is passive and rejects a third symbol', function()
-  reset(); eq(dem.ritualism.buildTrace({'fire','ice'},'fido1234'),'trace fire ice fido1234')
-  assert(not dem.ritualism.buildTrace({'fire','ice','fire'},'fido'))
-  dem.ritualism.duality = false
-  assert(not dem.ritualism.buildTrace({'fire','ice'},'fido'))
-  eq(dem.ritualism.buildTrace({'fire'},'fido'),'trace fire fido')
-  eq(#sent,0)
-end)
-test('hunt waits for a fresh roster and submits one combined attack', function()
+test('hunt waits for a fresh roster and submits one Combustion', function()
   reset(); setup(); dem.hunt.toggle(); dem.onPrompt(); eq(#sent,0)
-  roster(); dem.onPrompt(); eq(sent[1],'trace fire ice 1234'); eq(#sent,1)
+  roster(); dem.onPrompt(); eq(sent[1],'invoke combustion 1234'); eq(#sent,1)
 end)
 test('stale ready packets and duplicate prompts never repeat a pending attack', function()
   reset(); start(); vitals(); dem.onPrompt(); dem.onPrompt(); eq(#sent,1)
   cycle(); eq(#sent,2)
 end)
 test('reported cooldown expiration cannot grant readiness', function()
-  reset(); start(); dem.balances.taken('bal',2.70); tick(3); dem.onPrompt(); eq(#sent,1)
-  dem.balances.recovered('bal'); dem.onPrompt(); eq(#sent,2)
+  reset(); start(); dem.balances.taken('eq',2.70); tick(3); dem.onPrompt(); eq(#sent,1)
+  dem.balances.recovered('eq'); dem.onPrompt(); eq(#sent,2)
 end)
 test('equilibrium loss, stunned, and prone block attacks', function()
   for _, block in ipairs({'eq','stunned','prone'}) do
@@ -153,9 +186,9 @@ test('low mana disables hunting and never auto resumes', function()
     vitals(); dem.onPrompt(); eq(#sent,0)
   end
 end)
-test('the full Duality command needs eighteen mana', function()
+test('Combustion uses the configured mana floor without a guessed cost', function()
   reset(); setup(); dem.hunt.setLimits(0,0); vitals({mp='17'})
-  dem.hunt.toggle(); roster(); dem.onPrompt(); eq(#sent,0)
+  dem.hunt.toggle(); roster(); dem.onPrompt(); eq(sent[1], 'invoke combustion 1234')
 end)
 test('missing or malformed maximum vitals do not authorize attacks', function()
   reset(); room(); dem.onPrompt(); roster(); dem.hunt.add('a warrior ant')
@@ -176,7 +209,7 @@ test('sample text fallback updates balance and vitals without estimating maxima'
 end)
 test('same prompt valid GMCP wins over conflicting text fields', function()
   reset(); setup(); dem.hunt.toggle(); roster(); vitals()
-  dem.onPrompt('Health:1 Mana:1 (-- )'); eq(sent[1],'trace fire ice 1234')
+  dem.onPrompt('Health:1 Mana:1 (-- )'); eq(sent[1],'invoke combustion 1234')
 end)
 test('an empty area allowlist stays enabled and idle', function()
   reset(); vitals(); room(); dem.onPrompt(); roster(); dem.hunt.toggle(); roster(); dem.onPrompt()
@@ -192,9 +225,9 @@ end)
 test('area lists persist independently and never inherit an unknown area', function()
   reset(); setup(); room('Other area',102); dem.onPrompt(); roster()
   dem.hunt.toggle(); roster(); dem.onPrompt(); eq(#sent,0)
-  dem.hunt.add('Fido'); dem.onPrompt(); eq(sent[1],'trace fire ice 2335')
+  dem.hunt.add('Fido'); dem.onPrompt(); eq(sent[1],'invoke combustion 2335')
   reset(true); vitals(); room('Ant colony'); dem.onPrompt(); roster()
-  dem.hunt.toggle(); roster(); dem.onPrompt(); eq(sent[1],'trace fire ice 1234')
+  dem.hunt.toggle(); roster(); dem.onPrompt(); eq(sent[1],'invoke combustion 1234')
   room(nil,103); event('Room.Info',{num=104,name='Unknown area'}); dem.onPrompt(); roster()
   cycle(); eq(#sent,1)
 end)
@@ -204,23 +237,23 @@ test('manual player selection disables hunting and preserves its target', functi
 end)
 test('manual denizen selection switches only after prior balance recovers', function()
   reset(); start(); dem.targeting.setDenizen('fido2335'); eq(dem.target,'fido2335')
-  dem.onPrompt(); eq(#sent,1); cycle(); eq(sent[2],'trace fire ice 2335')
+  dem.onPrompt(); eq(#sent,1); cycle(); eq(sent[2],'invoke combustion 2335')
 end)
 test('manual bare name and ID references can switch hunting', function()
   for _, ref in ipairs({'fido','2335'}) do
     reset(); start(); dem.targeting.setDenizen(ref); cycle()
-    eq(dem.target,ref); eq(sent[2],'trace fire ice 2335')
+    eq(dem.target,ref); eq(sent[2],'invoke combustion 2335')
   end
 end)
 test('old attack kill and trailing error preserve a newly selected target', function()
   reset(); start(); dem.targeting.setDenizen('fido2335')
   dem.hunt.onKill('a warrior ant'); dem.hunt.onMissing(); roster(); cycle()
-  eq(dem.target,'fido2335'); eq(sent[2],'trace fire ice 2335')
+  eq(dem.target,'fido2335'); eq(sent[2],'invoke combustion 2335')
 end)
 test('manual override does not add a name to the area allowlist', function()
   reset(); start(); dem.targeting.setDenizen('fido'); cycle()
   dem.hunt.onKill('Fido'); roster(); cycle()
-  eq(sent[3],'trace fire ice 1234')
+  eq(sent[3],'invoke combustion 1234')
 end)
 test('manual protected denizens stop the basher but remain globally targetable', function()
   reset(); start(); event('Char.Items.Add',{location='room',item={id='9',name='a guard',attrib='mx'}})
@@ -240,12 +273,12 @@ end)
 test('room arrivals and scalar or object removals update candidates', function()
   reset(); setup(); dem.hunt.toggle(); roster({}); dem.onPrompt(); eq(#sent,0)
   event('Char.Items.Add',{location='room',item={id='7',name='a warrior ant',attrib='m'}})
-  dem.onPrompt(); eq(sent[1],'trace fire ice 7')
+  dem.onPrompt(); eq(sent[1],'invoke combustion 7')
   event('Char.Items.Remove',{location='room',item='7'}); cycle(); eq(#sent,1)
   event('Char.Items.Add',{location='room',item={id='8',name='a warrior ant',attrib='m'}})
-  assert(dem.room.ready); dem.onPrompt(); eq(sent[2],'trace fire ice 8')
+  assert(dem.room.ready); dem.onPrompt(); eq(sent[2],'invoke combustion 8')
   roster({{id='8',name='a warrior ant',attrib='m'}})
-  dem.onPrompt(); eq(sent[2],'trace fire ice 8')
+  dem.onPrompt(); eq(sent[2],'invoke combustion 8')
   event('Char.Items.Remove',{location='room',item={id='8'}}); cycle(); eq(#sent,2)
 end)
 test('watchdog disables unresolved attacks without retrying', function()
@@ -256,10 +289,10 @@ test('disconnect clears connection data and prohibits automatic restart', functi
   assert(not dem.hunt.enabled); vitals(); room(); roster(); dem.onPrompt(); eq(#sent,1)
 end)
 test('reload removes old handlers and pending timers', function()
-  reset(); start(); DEMONIC_TEST_LOAD(); assert(not dem.hunt.enabled)
-  local active = {}
-  for _, h in ipairs(handlers) do if h.active then active[h.event]=(active[h.event] or 0)+1 end end
-  for _, count in pairs(active) do eq(count,1) end
+  reset(); start(); local oldHandlers={}
+  for _,h in ipairs(handlers) do oldHandlers[#oldHandlers+1]=h end
+  DEMONIC_TEST_LOAD(); assert(not dem.hunt.enabled)
+  for _,h in ipairs(oldHandlers) do assert(not h.active, 'reload leaked an old handler') end
   tick(20); eq(#sent,1)
 end)
 test('installation in an already connected idle profile requests fresh contents', function()
@@ -275,12 +308,12 @@ test('installation in an already connected idle profile requests fresh contents'
 end)
 test('GMCP only roster and recovery events drive hunting without extra text', function()
   reset(); setup(); dem.hunt.toggle(); roster(); tick(0); eq(#sent,1)
-  vitals({bal='0'}); tick(0); vitals(); tick(0); eq(#sent,2)
+  vitals({eq='0'}); tick(0); vitals(); tick(0); eq(#sent,2)
 end)
 test('removing an unsubmitted manual target ends its temporary exception', function()
   reset(); start(); dem.targeting.setDenizen('fido2335')
   event('Char.Items.Remove',{location='room',item='2335'}); cycle()
-  assert(dem.hunt.enabled); eq(sent[2],'trace fire ice 1234')
+  assert(dem.hunt.enabled); eq(sent[2],'invoke combustion 1234')
 end)
 test('a protected update stops manual hunting without clearing shared selection', function()
   reset(); start(); dem.targeting.setDenizen('fido')
@@ -296,9 +329,9 @@ end)
 test('duplicate denizen names select one and stay pinned after list reordering', function()
   reset(); start(); event('Char.Items.Add',{location='room',item={id='2336',name='Fido',attrib='m'}})
   dem.targeting.setDenizen('fido'); assert(dem.hunt.enabled)
-  cycle(); eq(sent[2],'trace fire ice 2335'); eq(dem.target,'fido')
+  cycle(); eq(sent[2],'invoke combustion 2335'); eq(dem.target,'fido')
   roster({{id='2336',name='Fido',attrib='m'},{id='2335',name='Fido',attrib='m'}})
-  cycle(); eq(sent[3],'trace fire ice 2335')
+  cycle(); eq(sent[3],'invoke combustion 2335')
 end)
 test('room synchronization timeout turns mode off rather than using a cached list', function()
   reset(); setup(); dem.hunt.toggle(); tick(11)
@@ -307,7 +340,7 @@ end)
 test('explicit respawn arrival can revive an ID suppressed by an earlier kill', function()
   reset(); start(); dem.hunt.onKill('a warrior ant'); roster({}); cycle(); eq(#sent,1)
   event('Char.Items.Add',{location='room',item={id='1234',name='a warrior ant',attrib='m'}})
-  dem.onPrompt(); eq(sent[2],'trace fire ice 1234')
+  dem.onPrompt(); eq(sent[2],'invoke combustion 1234')
 end)
 test('stale snapshots cannot revive a denizen already killed in this room', function()
   reset(); start(); dem.hunt.onKill('a warrior ant'); dem.hunt.onMissing(); roster(); cycle()
@@ -340,13 +373,13 @@ test('a manual override removed during roster refresh returns to the area list',
   dem.targeting.setDenizen('fido2335')
   event('Char.Items.Remove',{location='room',item='2335'})
   roster({{id='9',name='a warrior ant',attrib='m'}}); cycle()
-  assert(dem.hunt.enabled); eq(sent[2],'trace fire ice 9')
+  assert(dem.hunt.enabled); eq(sent[2],'invoke combustion 9')
 end)
 test('a refresh snapshot can end an override that disappeared without a delta', function()
   reset(); start(); dem.hunt.onKill('a warrior ant')
   dem.targeting.setDenizen('fido2335')
   roster({{id='9',name='a warrior ant',attrib='m'}}); cycle()
-  assert(dem.hunt.enabled); eq(sent[2],'trace fire ice 9')
+  assert(dem.hunt.enabled); eq(sent[2],'invoke combustion 9')
 end)
 test('a truly unknown reference selected during refresh never authorizes an attack', function()
   reset(); start(); dem.hunt.onKill('a warrior ant')
@@ -375,43 +408,43 @@ test('generic ant selection skips corpses and protected ants before choosing a u
   dem.targeting.set('ant'); dem.hunt.toggle()
   roster({{id='1',name='a warrior ant',attrib='md'},{id='2',name='an ant guard',attrib='mx'},
     {id='427409',name='a warrior ant',attrib='m'},{id='428244',name='a worker ant',attrib='m'}})
-  dem.onPrompt(); eq(dem.target,'ant'); eq(sent[1],'trace fire ice 427409')
+  dem.onPrompt(); eq(dem.target,'ant'); eq(sent[1],'invoke combustion 427409')
   roster({{id='428244',name='a worker ant',attrib='m'},{id='427409',name='a warrior ant',attrib='m'}})
-  cycle(); eq(sent[2],'trace fire ice 427409')
+  cycle(); eq(sent[2],'invoke combustion 427409')
 end)
 test('generic matching works for bats and rats rather than only ants', function()
   for _, fixture in ipairs({{word='bat',first='a small vampire bat',second='a cave bat'},
     {word='rat',first='a brown rat',second='a sewer rat'}}) do
     reset(); setup(); dem.hunt.add(fixture.word); dem.hunt.toggle()
     roster({{id='7',name=fixture.first,attrib='m'},{id='8',name=fixture.second,attrib='m'}})
-    dem.onPrompt(); eq(sent[1],'trace fire ice 7')
+    dem.onPrompt(); eq(sent[1],'invoke combustion 7')
     dem.hunt.onKill(fixture.first)
     roster({{id='8',name=fixture.second,attrib='m'}}); cycle()
-    eq(sent[2],'trace fire ice 8')
+    eq(sent[2],'invoke combustion 8')
   end
 end)
 test('a generic area word matches whole words without matching giant or antenna', function()
   reset(); setup(); dem.hunt.add('ant'); dem.hunt.toggle()
   roster({{id='5',name='a giant',attrib='m'},{id='6',name='an antenna beast',attrib='m'},
     {id='9',name='a worker ant',attrib='m'}})
-  dem.onPrompt(); eq(sent[1],'trace fire ice 9')
+  dem.onPrompt(); eq(sent[1],'invoke combustion 9')
 end)
 test('existing full description entries do not expand to other denizen types', function()
   reset(); setup(); dem.hunt.toggle()
   roster({{id='8',name='a worker ant',attrib='m'},{id='9',name='A   WARRIOR ANT',attrib='m'}})
-  dem.onPrompt(); eq(sent[1],'trace fire ice 9')
+  dem.onPrompt(); eq(sent[1],'invoke combustion 9')
 end)
 test('removing a keyword preserves a selection covered by another area entry', function()
   reset(); setup(); dem.hunt.add('ant'); dem.hunt.toggle(); roster(); dem.onPrompt()
-  dem.hunt.remove('ant'); cycle(); eq(sent[2],'trace fire ice 1234')
+  dem.hunt.remove('ant'); cycle(); eq(sent[2],'invoke combustion 1234')
 end)
 test('a removed generic manual target returns to the area list instead of another override', function()
   reset(); start(); roster({{id='1234',name='a warrior ant',attrib='m'},
     {id='7',name='a cave bat',attrib='m'},{id='8',name='a vampire bat',attrib='m'}})
-  dem.targeting.set('bat'); cycle(); eq(sent[2],'trace fire ice 7')
+  dem.targeting.set('bat'); cycle(); eq(sent[2],'invoke combustion 7')
   event('Char.Items.Remove',{location='room',item='7'})
   roster({{id='1234',name='a warrior ant',attrib='m'},{id='8',name='a vampire bat',attrib='m'}}); cycle()
-  eq(sent[3],'trace fire ice 1234')
+  eq(sent[3],'invoke combustion 1234')
 end)
 test('protected only references remain globally targetable but never become hunting attacks', function()
   reset(); start(); event('Char.Items.Add',{location='room',item={id='9',name='a guard',attrib='mx'}})
@@ -428,40 +461,40 @@ test('both new missing target lines end only their submitted attack selection', 
     'Ahh, I am truly sorry, but I do not see anyone by that name here.'}) do
     reset(); start(); dem.targeting.setDenizen('fido2335')
     DEMONIC_TEST_MISSING_TARGET(text); roster(); cycle()
-    eq(dem.target,'fido2335'); eq(sent[2],'trace fire ice 2335')
+    eq(dem.target,'fido2335'); eq(sent[2],'invoke combustion 2335')
   end
 end)
 test('a generic manual exception ends when its pinned denizen becomes a corpse', function()
   reset(); start(); event('Char.Items.Add',{location='room',item={id='7',name='a cave bat',attrib='m'}})
   event('Char.Items.Add',{location='room',item={id='8',name='a vampire bat',attrib='m'}})
-  dem.targeting.set('bat'); cycle(); eq(sent[2],'trace fire ice 7')
+  dem.targeting.set('bat'); cycle(); eq(sent[2],'invoke combustion 7')
   event('Char.Items.Update',{location='room',item={id='7',attrib='md'}}); cycle()
-  eq(sent[3],'trace fire ice 1234')
+  eq(sent[3],'invoke combustion 1234')
 end)
 test('a protected pinned target cannot transfer its manual exception to a second match', function()
   reset(); start(); event('Char.Items.Add',{location='room',item={id='7',name='a cave bat',attrib='m'}})
   event('Char.Items.Add',{location='room',item={id='8',name='a vampire bat',attrib='m'}})
-  dem.targeting.set('bat'); cycle(); eq(sent[2],'trace fire ice 7')
+  dem.targeting.set('bat'); cycle(); eq(sent[2],'invoke combustion 7')
   event('Char.Items.Update',{location='room',item={id='7',attrib='mx'}}); cycle()
   eq(#sent,2); assert(not dem.hunt.enabled); eq(dem.target,'bat')
 end)
 test('renaming a pinned living denizen does not redirect a generic manual target', function()
   reset(); start(); event('Char.Items.Add',{location='room',item={id='7',name='a cave bat',attrib='m'}})
   event('Char.Items.Add',{location='room',item={id='8',name='a vampire bat',attrib='m'}})
-  dem.targeting.set('bat'); cycle(); eq(sent[2],'trace fire ice 7')
+  dem.targeting.set('bat'); cycle(); eq(sent[2],'invoke combustion 7')
   event('Char.Items.Update',{location='room',item={id='7',name='a changed creature'}}); cycle()
-  eq(sent[3],'trace fire ice 7'); eq(dem.target,'bat')
+  eq(sent[3],'invoke combustion 7'); eq(dem.target,'bat')
 end)
 test('room info after a prompt accepts its roster without another text prompt', function()
   reset(); start(); dem.onPrompt(); room('Ant colony',102)
   roster({{id='9',name='a warrior ant',attrib='m'}})
-  vitals({bal='0'}); vitals(); tick(0)
-  eq(dem.room.num,'102'); eq(sent[2],'trace fire ice 9')
+  vitals({eq='0'}); vitals(); tick(0)
+  eq(dem.room.num,'102'); eq(sent[2],'invoke combustion 9')
 end)
 test('room info before a prompt also accepts a full roster immediately', function()
   reset(); setup(); dem.hunt.toggle(); roster({}); tick(0)
   room('Ant colony',102); roster({{id='9',name='a warrior ant',attrib='m'}}); tick(0)
-  eq(sent[1],'trace fire ice 9')
+  eq(sent[1],'invoke combustion 9')
 end)
 test('missing roster retries GMCP once then ih once and times out at ten seconds', function()
   reset(); setup(); gmcpSent={}; dem.hunt.toggle(); tick(0)
@@ -521,8 +554,8 @@ end)
 test('the additional missing-target line follows the immutable submitted action', function()
   reset(); start(); dem.targeting.setDenizen('fido2335')
   DEMONIC_TEST_MISSING_TARGET('You detect nothing here by that name.')
-  roster(); vitals({bal='0'}); vitals(); tick(0)
-  eq(dem.target,'fido2335'); eq(sent[2],'trace fire ice 2335')
+  roster(); vitals({eq='0'}); vitals(); tick(0)
+  eq(dem.target,'fido2335'); eq(sent[2],'invoke combustion 2335')
 end)
 test('hunt status reports pending room recovery details', function()
   reset(); setup(); dem.hunt.toggle(); tick(1); messages={}; dem.hunt.status(true)
@@ -534,7 +567,7 @@ end)
 test('a full roster arriving after ih resumes without any text prompt', function()
   reset(); setup(); dem.hunt.toggle(); tick(2); eq(commandCount('ih'),1); eq(#sent,0)
   roster({{id='9',name='a warrior ant',attrib='m'}}); tick(0)
-  eq(sent[1],'trace fire ice 9'); assert(dem.room.ready)
+  eq(sent[1],'invoke combustion 9'); assert(dem.room.ready)
 end)
 test('reloading with a pending refresh cannot fire an old ih fallback', function()
   reset(); setup(); dem.hunt.toggle(); tick(0); DEMONIC_TEST_LOAD(); tick(12)
@@ -542,9 +575,9 @@ test('reloading with a pending refresh cannot fire an old ih fallback', function
 end)
 test('two confirmed movements can return to the original room', function()
   reset(); start(); send('n&&s'); room('Ant colony',102)
-  vitals({bal='0'}); vitals(); tick(0); eq(#sent,1)
+  vitals({eq='0'}); vitals(); tick(0); eq(#sent,1)
   room('Ant colony',101); roster(); tick(0)
-  eq(sent[2],'trace fire ice 1234'); eq(dem.room.num,'101')
+  eq(sent[2],'invoke combustion 1234'); eq(dem.room.num,'101')
 end)
 test('ordinary hunt status contains only mode target and a short reason', function()
   reset(); setup(); dem.hunt.toggle(); messages={}; DEMONIC_TEST_HUNT_STATUS(false)
@@ -563,7 +596,7 @@ test('the unified alias waits instead of selecting a player while room identity 
   reset(); setup(); dem.hunt.toggle(); roster({}); tick(0); room('Ant colony',102)
   DEMONIC_TEST_TARGET_ALIAS('ant'); eq(dem.target,'ant'); eq(dem.targeting.kind,'pending'); assert(dem.hunt.enabled)
   roster({{id='9',name='a warrior ant',attrib='m'}}); tick(0)
-  eq(dem.targeting.kind,'denizen'); eq(dem.target,'ant'); eq(sent[1],'trace fire ice 9')
+  eq(dem.targeting.kind,'denizen'); eq(dem.target,'ant'); eq(sent[1],'invoke combustion 9')
 end)
 
 test('a pending manual denizen preserves the submitted attack and resolves its next target', function()
@@ -571,7 +604,7 @@ test('a pending manual denizen preserves the submitted attack and resolves its n
   DEMONIC_TEST_TARGET_ALIAS('fido2335'); tick(0)
   eq(dem.targeting.kind,'pending'); assert(dem.hunt.enabled); eq(dem.balances.action,action); eq(#sent,1)
   roster(); tick(0); eq(dem.targeting.kind,'denizen'); eq(dem.balances.action,action); eq(#sent,1)
-  cycle(); eq(sent[2],'trace fire ice 2335')
+  cycle(); eq(sent[2],'invoke combustion 2335')
 end)
 
 test('a pending player is classified only after the current full roster arrives', function()
@@ -589,7 +622,7 @@ end)
 test('a roster followed immediately by its prompt resolves a pending target before hunting', function()
   reset(); setup(); dem.hunt.toggle(); DEMONIC_TEST_TARGET_ALIAS('fido')
   roster(); dem.onPrompt(); tick(0)
-  eq(dem.targeting.kind,'denizen'); eq(dem.target,'fido'); eq(sent[1],'trace fire ice 2335')
+  eq(dem.targeting.kind,'denizen'); eq(dem.target,'fido'); eq(sent[1],'invoke combustion 2335')
 end)
 
 test('pending targeting while hunt is off reissues contents after an early roster was ignored', function()
@@ -603,7 +636,8 @@ test('pending targeting subscribes to room GMCP even before hunting has been ena
   reset(); DEMONIC_TEST_TARGET_ALIAS('fido')
   local subscribed=false
   for _, request in ipairs(gmcpSent) do
-    if request=='Core.Supports.Add ["Char 1","Char.Items 1","Room 1"]' then subscribed=true end
+    if request:find('Core.Supports.Add',1,true) and request:find('"Room 1"',1,true)
+        and request:find('"Char.Items 1"',1,true) and request:find('"IRE.Target 1"',1,true) then subscribed=true end
   end
   assert(subscribed,'target classification must subscribe before requesting its first room roster')
 end)
@@ -612,12 +646,12 @@ test('a later movement cancels a pending reference from the previous context', f
   reset(); setup(); dem.hunt.toggle(); DEMONIC_TEST_TARGET_ALIAS('fido'); eq(dem.targeting.kind,'pending')
   send('n'); room('Ant colony',102)
   roster({{id='9',name='a warrior ant',attrib='m'},{id='2335',name='Fido',attrib='m'}}); tick(0)
-  assert(dem.hunt.enabled); eq(dem.target,'9'); eq(sent[1],'trace fire ice 9')
+  assert(dem.hunt.enabled); eq(dem.target,'9'); eq(sent[1],'invoke combustion 9')
 end)
 
 test('replacing a pending reference cannot resolve an older player selection', function()
   reset(); setup(); dem.hunt.toggle(); DEMONIC_TEST_TARGET_ALIAS('Aeden'); DEMONIC_TEST_TARGET_ALIAS('ant')
-  roster(); tick(0); assert(dem.hunt.enabled); eq(dem.target,'ant'); eq(sent[1],'trace fire ice 1234')
+  roster(); tick(0); assert(dem.hunt.enabled); eq(dem.target,'ant'); eq(sent[1],'invoke combustion 1234')
 end)
 
 test('clearing a pending reference prevents late roster resolution', function()
@@ -696,7 +730,7 @@ end)
 test('a divine grace refusal retires only the unexecuted action without granting readiness', function()
   reset(); start(); local action=dem.balances.action
   DEMONIC_TEST_GRACE()
-  eq(dem.balances.action,nil); eq(dem.balances.bal,false); assert(not dem.hunt.enabled)
+  eq(dem.balances.action,nil); eq(dem.balances.eq,false); assert(not dem.hunt.enabled)
   eq(action.key,'1234'); eq(action.reference,'1234'); eq(commandCount('renounce grace'),0)
   vitals(); tick(11); eq(#sent,1)
 end)
@@ -707,7 +741,7 @@ test('an explicit refusal arriving after hunt stops still releases its unexecute
 end)
 
 test('an accepted balance cycle is preserved when an attack refusal is ambiguous', function()
-  reset(); start(); vitals({bal='0'}); local action=dem.balances.action
+  reset(); start(); vitals({eq='0'}); local action=dem.balances.action
   dem.hunt.onAttackRejected('Divine grace prevents attacks.')
   eq(dem.balances.action,action); assert(not dem.hunt.enabled)
   vitals(); eq(dem.balances.action,nil); eq(#sent,1)
@@ -716,11 +750,11 @@ end)
 test('manual restart after grace removal cannot inherit the rejected attack watchdog', function()
   reset(); start(); dem.hunt.onAttackRejected('Divine grace prevents attacks.')
   vitals({eq='0'}); tick(11); vitals(); dem.hunt.toggle(); roster(); tick(0)
-  assert(dem.hunt.enabled); eq(sent[2],'trace fire ice 1234')
+  assert(dem.hunt.enabled); eq(sent[2],'invoke combustion 1234')
 end)
 
 test('GMCP only outgoing directions leave the reported roster usable', function()
-  reset(); start(); send('n&&e'); cycle(); eq(sent[2],'trace fire ice 1234')
+  reset(); start(); send('n&&e'); cycle(); eq(sent[2],'invoke combustion 1234')
   eq(dem.room.num,'101'); assert(dem.room.ready)
 end)
 
@@ -737,21 +771,21 @@ test('a background refresh preserves readiness and cannot stop usable hunting', 
 end)
 
 test('background reconciliation does not postpone the next balanced attack', function()
-  reset(); start(); dem.hunt.add('fido'); vitals({bal='0'})
+  reset(); start(); dem.hunt.add('fido'); vitals({eq='0'})
   event('Char.Items.Remove',{location='room',item='1234'}); vitals(); tick(0)
-  eq(sent[2],'trace fire ice 2335'); assert(dem.room.ready)
+  eq(sent[2],'invoke combustion 2335'); assert(dem.room.ready)
 end)
 
 test('reported identity overrides cached exit predictions without walk text', function()
   reset(); setup(); event('Room.Info',{num=101,area='Ant colony',exits={n=102}})
   dem.hunt.toggle(); roster({}); send('n'); room('Ant colony',900)
-  roster(); tick(0); eq(dem.room.num,'900'); eq(sent[1],'trace fire ice 1234')
+  roster(); tick(0); eq(dem.room.num,'900'); eq(sent[1],'invoke combustion 1234')
 end)
 
 test('late duplicate terminal text cannot retire a same named successor', function()
   reset(); start(); event('Char.Items.Add',{location='room',item={id='9',name='a warrior ant',attrib='m'}})
-  vitals({bal='0'}); event('Char.Items.Remove',{location='room',item='1234'})
-  dem.hunt.onKill('a warrior ant'); vitals(); tick(0); eq(sent[2],'trace fire ice 9')
+  vitals({eq='0'}); event('Char.Items.Remove',{location='room',item='1234'})
+  dem.hunt.onKill('a warrior ant'); vitals(); tick(0); eq(sent[2],'invoke combustion 9')
   dem.hunt.onKill('a warrior ant'); dem.hunt.onMissing(); tick(0)
   assert(not dem.room.retired['9']); eq(dem.target,'9'); assert(dem.room.ready)
   event('Char.Items.Remove',{location='room',item='9'}); assert(dem.room.retired['9'])
@@ -759,16 +793,16 @@ end)
 
 test('an ambiguous kill can reconcile again after an earlier harmless snapshot', function()
   reset(); start(); event('Char.Items.Add',{location='room',item={id='9',name='a warrior ant',attrib='m'}})
-  vitals({bal='0'}); event('Char.Items.Remove',{location='room',item='1234'}); vitals(); tick(0)
-  eq(sent[2],'trace fire ice 9'); gmcpSent={}
+  vitals({eq='0'}); event('Char.Items.Remove',{location='room',item='1234'}); vitals(); tick(0)
+  eq(sent[2],'invoke combustion 9'); gmcpSent={}
   dem.hunt.onKill('a warrior ant'); roster({{id='9',name='a warrior ant',attrib='m'}})
   gmcpSent={}; dem.hunt.onKill('a warrior ant'); eq(queryCount(),1)
   roster({}); assert(dem.balances.action.retired); assert(dem.room.ready)
 end)
 
 test('late missing text cannot retire a differently named successor', function()
-  reset(); start(); dem.hunt.add('fido'); vitals({bal='0'}); dem.hunt.onKill('a warrior ant')
-  vitals(); tick(0); eq(sent[2],'trace fire ice 2335')
+  reset(); start(); dem.hunt.add('fido'); vitals({eq='0'}); dem.hunt.onKill('a warrior ant')
+  vitals(); tick(0); eq(sent[2],'invoke combustion 2335')
   dem.hunt.onMissing(); tick(0); assert(not dem.room.retired['2335']); eq(dem.target,'2335')
   dem.hunt.onKill('Fido'); assert(dem.room.retired['2335'])
 end)
@@ -793,7 +827,7 @@ test('a list before changed identity is cleared instead of reused for the new ro
   reset(); setup(); dem.hunt.toggle(); roster({}); tick(0)
   roster({{id='7',name='a warrior ant',attrib='m'}}); room('Ant colony',102); tick(0)
   assert(not dem.room.ready); eq(dem.room.items['7'],nil); eq(#sent,0)
-  roster({{id='8',name='a warrior ant',attrib='m'}}); tick(0); eq(sent[1],'trace fire ice 8')
+  roster({{id='8',name='a warrior ant',attrib='m'}}); tick(0); eq(sent[1],'invoke combustion 8')
 end)
 
 test('balance and direction refusals cannot invalidate a reported room', function()
@@ -818,7 +852,7 @@ test('unknown identity ignores lists and deltas until real room info arrives', f
   event('Char.Items.Add',{location='room',item={id='7',name='a warrior ant',attrib='m'}})
   tick(0); eq(dem.room.num,nil); eq(next(dem.room.items),nil); assert(not dem.room.ready)
   room(); assert(not dem.room.ready); dem.hunt.add('ant'); roster(); tick(0)
-  eq(sent[1],'trace fire ice 1234')
+  eq(sent[1],'invoke combustion 1234')
 end)
 
 test('unknown identity times out once without inferring a room from ih contents', function()
@@ -831,7 +865,7 @@ test('rapid reported room changes cancel the intermediate roster and timers', fu
   room('Ant colony',102); roster({{id='7',name='a warrior ant',attrib='m'}})
   room('Ant colony',103); tick(0); eq(#sent,0); eq(dem.room.items['7'],nil)
   roster({{id='8',name='a warrior ant',attrib='m'}}); tick(0)
-  eq(sent[1],'trace fire ice 8'); tick(2); eq(commandCount('ih'),0)
+  eq(sent[1],'invoke combustion 8'); tick(2); eq(commandCount('ih'),0)
 end)
 
 test('inventory deltas cannot remove or reclassify a known room mob', function()
@@ -842,9 +876,9 @@ test('inventory deltas cannot remove or reclassify a known room mob', function()
 end)
 
 test('an actual slain trigger retires its ID and preserves readiness for another mob', function()
-  reset(); start(); dem.hunt.add('fido'); vitals({bal='0'})
+  reset(); start(); dem.hunt.add('fido'); vitals({eq='0'})
   DEMONIC_TEST_KILL('a warrior ant'); eq(dem.room.items['1234'],nil); assert(dem.room.ready)
-  eq(#sent,1); vitals(); tick(0); eq(sent[2],'trace fire ice 2335')
+  eq(#sent,1); vitals(); tick(0); eq(sent[2],'invoke combustion 2335')
 end)
 
 test('background refresh timers are cancelled when hunt is stopped', function()
@@ -860,38 +894,38 @@ end)
 
 test('grace restart preserves same name terminal provenance', function()
   reset(); start(); event('Char.Items.Add',{location='room',item={id='9',name='a warrior ant',attrib='m'}})
-  vitals({bal='0'}); event('Char.Items.Remove',{location='room',item='1234'})
-  dem.hunt.onKill('a warrior ant'); vitals(); tick(0); eq(sent[2],'trace fire ice 9')
+  vitals({eq='0'}); event('Char.Items.Remove',{location='room',item='1234'})
+  dem.hunt.onKill('a warrior ant'); vitals(); tick(0); eq(sent[2],'invoke combustion 9')
   DEMONIC_TEST_GRACE(); eq(dem.hunt.lastAction,nil)
   vitals(); dem.hunt.toggle(); roster({{id='9',name='a warrior ant',attrib='m'}}); tick(0)
-  eq(sent[3],'trace fire ice 9'); DEMONIC_TEST_KILL('a warrior ant')
+  eq(sent[3],'invoke combustion 9'); DEMONIC_TEST_KILL('a warrior ant')
   assert(not dem.room.retired['9']); assert(dem.room.items['9']); eq(dem.target,'9')
 end)
 
 test('grace restart preserves untagged missing target provenance', function()
-  reset(); start(); dem.hunt.add('fido'); vitals({bal='0'}); dem.hunt.onKill('a warrior ant')
-  vitals(); tick(0); eq(sent[2],'trace fire ice 2335'); DEMONIC_TEST_GRACE()
+  reset(); start(); dem.hunt.add('fido'); vitals({eq='0'}); dem.hunt.onKill('a warrior ant')
+  vitals(); tick(0); eq(sent[2],'invoke combustion 2335'); DEMONIC_TEST_GRACE()
   vitals(); dem.hunt.toggle(); roster({{id='2335',name='Fido',attrib='m'}}); tick(0)
-  eq(sent[3],'trace fire ice 2335'); DEMONIC_TEST_MISSING_TARGET('You detect nothing here by that name.')
+  eq(sent[3],'invoke combustion 2335'); DEMONIC_TEST_MISSING_TARGET('You detect nothing here by that name.')
   assert(not dem.room.retired['2335']); assert(dem.room.items['2335']); eq(dem.target,'2335')
 end)
 
 for _,packet in ipairs({'update','list'}) do
   test('a renamed prior target cannot consume its same named successor via '..packet, function()
-    reset(); start(); dem.hunt.add('fido'); vitals({bal='0'})
+    reset(); start(); dem.hunt.add('fido'); vitals({eq='0'})
     if packet=='update' then
       event('Char.Items.Update',{location='room',item={id='1234',name='Fido'}})
     else
       roster({{id='1234',name='Fido',attrib='m'},{id='2335',name='Fido',attrib='m'}})
     end
     event('Char.Items.Remove',{location='room',item='1234'}); vitals(); tick(0)
-    eq(sent[2],'trace fire ice 2335'); DEMONIC_TEST_KILL('Fido')
+    eq(sent[2],'invoke combustion 2335'); DEMONIC_TEST_KILL('Fido')
     assert(not dem.room.retired['2335']); assert(dem.room.items['2335']); eq(dem.target,'2335')
   end)
 end
 
 test('observed aliases can make an already submitted successor kill ambiguous', function()
-  reset(); start(); dem.targeting.setDenizen('fido'); cycle(); eq(sent[2],'trace fire ice 2335')
+  reset(); start(); dem.targeting.setDenizen('fido'); cycle(); eq(sent[2],'invoke combustion 2335')
   event('Char.Items.Update',{location='room',item={id='1234',name='Fido'}})
   DEMONIC_TEST_KILL('Fido'); assert(not dem.room.retired['2335']); eq(dem.target,'fido')
 end)
@@ -902,62 +936,45 @@ test('exported startup supports actual prompt and Hunt aliases after reload', fu
   assert(not dem.hunt.enabled)
 end)
 
-test('maintenance summons first and confirmation plus a fresh prompt advances once', function()
+test('maintenance tracks wrapped Arctar and Summoner confirmations', function()
   reset(); vitals(); dem.defences.toggle(); dem.onPrompt()
-  eq(commands[#commands], 'summon ouroboros')
-  local count = #commands
-  dem.onPrompt(); tick(0); eq(#commands, count)
-  DEMONIC_TEST_CLASS_TRIGGER('Summoned ouroboros'); tick(0); eq(#commands, count)
-  dem.onPrompt('Health:3998 Mana:4459 (eb)'); eq(commands[#commands], 'demon armor'); eq(#commands,count+1)
-  dem.onPrompt(); eq(#commands,count+1)
-end)
-
-local function confirmDefence(name)
-  DEMONIC_TEST_CLASS_TRIGGER(name); dem.onPrompt('Health:3998 Mana:4459 (eb)')
-end
-
-test('class confirmations sequence every defence and wait for the right recovery', function()
-  reset(); vitals(); dem.defences.toggle(); dem.onPrompt()
-  confirmDefence('Summoned ouroboros'); eq(commands[#commands],'demon armor')
-  confirmDefence('Demon armor'); eq(commands[#commands],'demon regeneration')
-  confirmDefence('Demon regeneration'); eq(commands[#commands],'demon soulmask')
-  confirmDefence('Soulmask'); eq(commands[#commands],'demon syphon')
-  confirmDefence('Syphoning on'); eq(commands[#commands],'trace vitality me')
-  local count=#commands
-  confirmDefence('Vitality activated'); eq(#commands,count)
-  vitals({bal='0'}); dem.onPrompt(); vitals(); dem.onPrompt()
-  eq(commands[#commands],'nightfall'); count=#commands
-  confirmDefence('Nightfall defence'); eq(#commands,count)
-  vitals({eq='0'}); dem.onPrompt(); vitals(); dem.onPrompt()
-  eq(#commands,count); assert(dem.defences.active.nightfall)
-  DEMONIC_TEST_CLASS_TRIGGER('Nightfall cease'); dem.onPrompt()
-  assert(not dem.defences.active.nightfall); eq(commands[#commands],'nightfall')
-end)
-
-test('Ouroboros loss invalidates dependent defences and summons before replacements', function()
-  reset(); vitals()
-  for _,name in ipairs({'Summoned ouroboros','Demon armor','Demon regeneration','Soulmask','Syphoning on'}) do
-    DEMONIC_TEST_CLASS_TRIGGER(name)
+  eq(commands[1], 'summon arctar')
+  local action = dem.balances.action
+  DEMONIC_TEST_DEFENCE_LOG('arctar-summon')
+  eq(dem.defences.active.arctar, true)
+  dem.balances.recovered('bal'); dem.onPrompt(); eq(dem.balances.action, action)
+  cycle(); eq(commands[2], 'invoke warmth')
+  for i, name in ipairs({'warmth', 'astralvision', 'distortion-up', 'mindseye-up'}) do
+    DEMONIC_TEST_DEFENCE_LOG(name); dem.onPrompt(); eq(#commands, i+1)
+    dem.onPrompt('Health:3998 Mana:4459 (eb)')
   end
-  DEMONIC_TEST_CLASS_TRIGGER('Missing ouroboros')
-  dem.defences.toggle(); dem.onPrompt(); eq(commands[#commands],'summon ouroboros')
-  confirmDefence('Summoned ouroboros'); eq(commands[#commands],'demon armor')
+  eq(dem.defences.active.warmth, true); eq(dem.defences.active.astralvision, true)
+  eq(dem.defences.active.distortion, true); eq(dem.defences.active.mindseye, true)
+  DEMONIC_TEST_DEFENCE_LOG('distortion-down')
+  DEMONIC_TEST_DEFENCE_LOG('arctar-banish')
+  eq(dem.defences.active.distortion, false); eq(dem.defences.active.arctar, false)
+  dem.onPrompt(); eq(commands[6], 'summon arctar')
 end)
+
+local function confirmArctar()
+  DEMONIC_TEST_DEFENCE_LOG('arctar-summon')
+  cycle()
+end
 
 test('maintenance pauses for Hunt and resumes without competing sends', function()
   reset(); setup(); dem.defences.toggle(); dem.onPrompt()
   local count=#commands
   DEMONIC_TEST_HUNT_ALIAS(); roster(); dem.onPrompt(); eq(#commands,count)
-  confirmDefence('Summoned ouroboros'); eq(sent[#sent],'trace fire ice 1234')
+  confirmArctar(); eq(sent[#sent],'invoke combustion 1234')
   local traces=#sent
   DEMONIC_TEST_HUNT_ALIAS(); cycle()
-  eq(#sent,traces); eq(commands[#commands],'demon armor'); assert(dem.defences.enabled)
+  eq(#sent,traces); eq(commands[#commands],'invoke warmth'); assert(dem.defences.enabled)
 end)
 
 test('maintenance off preserves a pending action and prevents further defence casts', function()
   reset(); vitals(); dem.defences.toggle(); dem.onPrompt()
   dem.defences.toggle(); local count=#commands
-  confirmDefence('Summoned ouroboros'); dem.onPrompt(); tick(11)
+  confirmArctar(); dem.onPrompt(); tick(11)
   eq(#commands,count); assert(not dem.defences.enabled); eq(dem.balances.action,nil)
 end)
 
@@ -972,7 +989,7 @@ test('maintenance respects safety gates and resets on death connection and reloa
   for _,block in ipairs({'bal','eq','prone','stunned'}) do
     reset(); vitals({[block]=(block=='bal' or block=='eq') and '0' or '1'})
     dem.defences.toggle(); dem.onPrompt(); eq(#commands,0)
-    vitals(); dem.onPrompt(); eq(commands[1],'summon ouroboros')
+    vitals(); dem.onPrompt(); eq(commands[1],'summon arctar')
   end
   for _,kind in ipairs({'death','connection','reload'}) do
     reset(); vitals(); dem.defences.toggle(); dem.onPrompt()
@@ -983,41 +1000,57 @@ test('maintenance respects safety gates and resets on death connection and reloa
   end
 end)
 
-test('low health shields including below the HP stop and attacks resume only above forty', function()
-  for _,hp in ipairs({'40','30','1'}) do
-    reset(); setup(); vitals({hp=hp,maxhp='100'})
-    DEMONIC_TEST_HUNT_ALIAS(); roster(); dem.onPrompt()
-    assert(dem.hunt.enabled); eq(sent[1],'trace inversion hammer me')
-    local action=dem.balances.action
-    dem.onPrompt(); vitals({hp=hp,maxhp='100'}); dem.onPrompt(); eq(#sent,1)
-    dem.balances.taken('bal',2); tick(3); eq(#sent,1)
-    dem.balances.recovered('bal'); dem.onPrompt(); eq(sent[2],'trace inversion hammer me')
-    assert(dem.balances.action~=action)
-    vitals({bal='0',hp='41',maxhp='100'}); dem.onPrompt(); eq(#sent,2)
-    vitals({hp='41',maxhp='100'}); dem.onPrompt(); eq(sent[3],'trace fire ice 1234')
+test('Arctar shields below the health stop and resumes attacks only above forty', function()
+  for _, hp in ipairs({'40','30','1'}) do
+    reset(); setup(); vitals({hp=hp,maxhp='100'}); dem.hunt.toggle(); roster(); dem.onPrompt()
+    eq(sent[1], 'unleash arctar at me')
+    DEMONIC_TEST_DEFENCE_LOG('arctar-shield')
+    dem.onPrompt('Health:40 Mana:4459 (eb)'); eq(dem.balances.action, nil)
+    DEMONIC_TEST_DEFENCE_LOG('arctar-ready')
+    DEMONIC_TEST_DEFENCE_LOG('unleash-ready')
+    vitals({hp='40',maxhp='100'}); dem.onPrompt(); eq(#sent,1)
+    vitals({hp='41',maxhp='100'}); dem.onPrompt(); eq(sent[2], 'invoke combustion 1234')
   end
 end)
 
-test('Hammer waits for an attack cycle and preserves target and terminal history', function()
-  reset(); start(); local attack=dem.hunt.lastAction; local target=dem.target
-  vitals({hp='40',maxhp='100'}); dem.onPrompt(); eq(#sent,1)
-  dem.balances.taken('bal'); dem.balances.recovered('bal'); dem.onPrompt()
-  eq(sent[2],'trace inversion hammer me'); eq(dem.target,target); eq(dem.hunt.lastAction,attack)
-  DEMONIC_TEST_KILL('a warrior ant'); assert(dem.room.retired['1234'])
+test('a refused self-shield leaves the attacked denizen and its history intact', function()
+  reset(); start(); local attack=dem.hunt.lastAction
+  assert(dem.targeting.setDenizen('ant'))
+  vitals({hp='40',maxhp='100',eq='0'}); dem.onPrompt(); eq(#sent,1)
+  vitals({hp='40',maxhp='100'}); dem.onPrompt()
+  eq(sent[2], 'unleash arctar at me'); eq(dem.target,'ant'); eq(dem.hunt.lastAction,attack)
+  DEMONIC_TEST_MISSING_TARGET('You detect nothing here by that name.')
+  DEMONIC_TEST_MISSING_TARGET('You detect nothing here by that name.')
+  assert(not dem.hunt.enabled); assert(not dem.room.retired['1234'])
+  eq(dem.target,'ant'); eq(dem.hunt.lastAction,attack); eq(dem.balances.action,nil)
 end)
 
-test('Hammer does not require a room roster or a resolved hunting target', function()
+test('Arctar does not require a room roster or a resolved hunting target', function()
   reset(); vitals({hp='40',maxhp='100'}); dem.hunt.toggle(); dem.onPrompt()
-  eq(sent[1],'trace inversion hammer me')
+  eq(sent[1], 'unleash arctar at me')
 end)
 
-test('low health never attacks when shielding cannot be cast', function()
-  for _,override in ipairs({{mp='17',maxmp='100'},{eq='0'},{prone='1'},{stunned='1'}}) do
+test('low health uses the tattoo if Arctar is too expensive, subject to the mana stop', function()
+  reset(); setup(); vitals({hp='40',maxhp='100',mp='17',maxmp='100'})
+  dem.hunt.toggle(); roster(); dem.onPrompt(); eq(sent[1], 'touch shield')
+  local action = dem.balances.action
+  DEMONIC_TEST_DEFENCE_LOG('tattoo-shield')
+  dem.balances.recovered('bal'); dem.onPrompt(); eq(dem.balances.action,action)
+  dem.balances.recovered('eq'); dem.onPrompt(); eq(dem.balances.action,nil); eq(#sent,1)
+  for _, override in ipairs({{mp='10',maxmp='100'},{eq='0'},{prone='1'},{stunned='1'}}) do
     reset(); setup(); override.hp='40'; override.maxhp='100'; vitals(override)
-    dem.hunt.toggle(); roster(); dem.onPrompt(); eq(#sent,0); assert(dem.hunt.enabled)
+    dem.hunt.toggle(); roster(); dem.onPrompt(); eq(#sent,0)
+    eq(dem.hunt.enabled,override.mp==nil)
   end
-  reset(); setup(); vitals({hp='40',maxhp='100',mp='10',maxmp='100'})
-  dem.hunt.toggle(); roster(); dem.onPrompt(); eq(#sent,0); assert(not dem.hunt.enabled)
+end)
+
+test('the other cooldown still blocks Arctar after a Hunt restart', function()
+  reset(); setup(); vitals({hp='40',maxhp='100'}); dem.hunt.toggle(); roster(); dem.onPrompt()
+  DEMONIC_TEST_DEFENCE_LOG('arctar-shield')
+  dem.onPrompt('Health:40 Mana:4459 (eb)')
+  dem.hunt.stop(); DEMONIC_TEST_DEFENCE_LOG('shield-down'); DEMONIC_TEST_DEFENCE_LOG('arctar-ready')
+  assert(dem.defences.cooldowns.unleash and not dem.defences.cooldowns.arctar)
+  tick(41); dem.hunt.toggle(); roster(); dem.onPrompt(); eq(sent[2], 'touch shield')
 end)
 
 test('missing shield character data cannot continually postpone its state watchdog', function()
@@ -1027,37 +1060,19 @@ test('missing shield character data cannot continually postpone its state watchd
   tick(1); assert(not dem.hunt.enabled)
 end)
 
-test('equilibrium defence cannot complete from balance packets or its cooldown timer', function()
-  reset(); vitals()
-  for _,name in ipairs({'Summoned ouroboros','Demon armor','Demon regeneration','Soulmask','Syphoning on','Vitality activated'}) do
-    DEMONIC_TEST_CLASS_TRIGGER(name)
-  end
-  dem.defences.toggle(); dem.onPrompt(); eq(commands[#commands],'nightfall')
-  local action=dem.balances.action
-  confirmDefence('Nightfall defence'); dem.balances.recovered('bal'); dem.onPrompt()
-  eq(dem.balances.action,action)
-  dem.balances.taken('eq',3); tick(3); eq(dem.balances.action,action)
-  dem.balances.recovered('eq'); dem.onPrompt(); eq(dem.balances.action,nil)
-end)
-
-test('Hammer respects off death unknown vitals and its pending action watchdog', function()
+test('unconfirmed protection times out without repeating', function()
   reset(); vitals({hp='40',maxhp='100'}); dem.onPrompt(); eq(#sent,0)
-  dem.hunt.toggle(); dem.onPrompt(); eq(sent[1],'trace inversion hammer me')
+  dem.hunt.toggle(); dem.onPrompt(); eq(sent[1], 'unleash arctar at me')
   tick(10); assert(not dem.hunt.enabled); eq(#sent,1)
-  reset(); vitals({hp='0',maxhp='100'}); dem.hunt.toggle(); dem.onPrompt(); eq(#sent,0)
-  reset(); vitals({hp='bad',maxhp='100'}); dem.hunt.toggle(); dem.onPrompt(); eq(#sent,0)
 end)
 
-test('a pending Vitality action must confirm and recover before Hunt can shield', function()
-  reset(); setup()
-  for _,name in ipairs({'Summoned ouroboros','Demon armor','Demon regeneration','Soulmask','Syphoning on'}) do
-    DEMONIC_TEST_CLASS_TRIGGER(name)
-  end
-  dem.defences.toggle(); dem.onPrompt(); eq(sent[1],'trace vitality me')
-  vitals({hp='40',maxhp='100'}); dem.hunt.toggle(); roster(); dem.onPrompt(); eq(#sent,1)
-  dem.balances.taken('bal'); dem.balances.recovered('bal'); dem.onPrompt(); eq(#sent,1)
-  DEMONIC_TEST_CLASS_TRIGGER('Vitality activated'); dem.onPrompt()
-  eq(sent[2],'trace inversion hammer me'); assert(dem.defences.enabled)
+test('pending defence recovery gates emergency shielding', function()
+  reset(); setup(); dem.defences.toggle(); dem.onPrompt()
+  eq(commands[#commands],'summon arctar')
+  vitals({hp='40',maxhp='100'}); dem.hunt.toggle(); roster(); dem.onPrompt(); eq(#sent,0)
+  dem.balances.taken('eq'); dem.balances.recovered('eq'); dem.onPrompt(); eq(#sent,0)
+  DEMONIC_TEST_DEFENCE_LOG('arctar-summon'); dem.onPrompt()
+  eq(sent[1],'unleash arctar at me'); assert(dem.defences.enabled)
 end)
 
 test('defence maintenance does not cast with low mana or malformed resources', function()
@@ -1069,9 +1084,10 @@ end)
 test('defence confirmation cannot reuse cached readiness or a partial GMCP update', function()
   for _,fresh in ipairs({'neither','bal','eq'}) do
     reset(); vitals(); dem.onPrompt('Health:3998 Mana:4459 (eb)')
-    dem.defences.toggle(); dem.onPrompt(); eq(commands[1],'summon ouroboros')
+    DEMONIC_TEST_DEFENCE_LOG('arctar-summon')
+    dem.defences.toggle(); dem.onPrompt(); eq(commands[1],'invoke warmth')
     local action=dem.balances.action
-    DEMONIC_TEST_CLASS_TRIGGER('Summoned ouroboros')
+    DEMONIC_TEST_DEFENCE_LOG('warmth')
     local packet={hp='3998'}
     if fresh~='neither' then packet[fresh]='1' end
     event('Char.Vitals',packet); dem.onPrompt('Health:3998 Mana:4459')
@@ -1081,262 +1097,312 @@ test('defence confirmation cannot reuse cached readiness or a partial GMCP updat
     elseif fresh=='bal' then event('Char.Vitals',{eq='1'})
     else event('Char.Vitals',{bal='1'}) end
     dem.onPrompt('Health:3998 Mana:4459')
-    eq(commands[2],'demon armor'); eq(#commands,2)
+    eq(commands[2],'invoke astralvision'); eq(#commands,2)
   end
 end)
 
 test('ddef runs every defence from the compact prompt without toggling off or requiring success text', function()
   reset(); dem.onPrompt('Health:363 Mana:372 (eb)')
-  for _,name in ipairs({'Summoned ouroboros','Demon armor','Demon regeneration','Soulmask','Syphoning on','Vitality activated','Nightfall defence'}) do
-    DEMONIC_TEST_CLASS_TRIGGER(name)
-  end
-  DEMONIC_TEST_DEFS_ALIAS(); tick(0); eq(commands[1],'summon ouroboros')
+  DEMONIC_TEST_DEFS_ALIAS(); tick(0); eq(commands[1],'summon arctar')
   DEMONIC_TEST_DEFS_ALIAS(); tick(0); eq(#commands,1); assert(dem.defences.enabled)
-  local expected={'demon armor','demon regeneration','demon soulmask','demon syphon','trace vitality me','nightfall'}
+  local expected={'invoke warmth','invoke astralvision','invoke distortion','touch mindseye'}
   for i,command in ipairs(expected) do
     dem.onPrompt('Health:363 Mana:372 (eb)'); eq(commands[i+1],command); eq(#commands,i+1)
   end
-  dem.onPrompt('Health:363 Mana:372 (eb)'); eq(#commands,7); assert(not dem.defences.enabled)
-  DEMONIC_TEST_DEFS_ALIAS(); tick(0); eq(commands[8],'summon ouroboros')
+  dem.onPrompt('Health:363 Mana:372 (eb)'); eq(#commands,5); assert(not dem.defences.enabled)
+  DEMONIC_TEST_DEFS_ALIAS(); tick(0); eq(commands[6],'summon arctar')
 end)
 
 test('manual defence pass waits for fresh readiness and respects observed incapacitation', function()
   reset(); dem.onPrompt('Health:363 Mana:372 (eb)'); DEMONIC_TEST_DEFS_ALIAS(); tick(0)
   dem.onPrompt('Health:363 Mana:372'); eq(#commands,1)
   dem.onPrompt('Health:363 Mana:372 (e-)'); eq(#commands,1)
-  dem.onPrompt('Health:363 Mana:372 (eb)'); eq(commands[2],'demon armor')
+  dem.onPrompt('Health:363 Mana:372 (eb)'); eq(commands[2],'invoke warmth')
   reset(); vitals({stunned='1'}); DEMONIC_TEST_DEFS_ALIAS(); tick(0); eq(#commands,0)
-  vitals(); dem.onPrompt(); tick(0); eq(commands[1],'summon ouroboros')
+  vitals(); dem.onPrompt(); tick(0); eq(commands[1],'summon arctar')
 end)
 
 test('manual defence pass does not treat partial GMCP as a fresh ready prompt', function()
   reset(); vitals(); dem.onPrompt(); DEMONIC_TEST_DEFS_ALIAS(); tick(0)
-  eq(commands[1],'summon ouroboros')
+  eq(commands[1],'summon arctar')
   event('Char.Vitals',{hp='3998',bal='1'}); dem.onPrompt('Health:363 Mana:372'); eq(#commands,1)
-  event('Char.Vitals',{eq='1'}); dem.onPrompt('Health:363 Mana:372'); eq(commands[2],'demon armor')
+  event('Char.Vitals',{eq='1'}); dem.onPrompt('Health:363 Mana:372'); eq(commands[2],'invoke warmth')
 end)
 
 test('manual defence pass pauses during Hunt and death cancels the remaining sequence', function()
   reset(); start(); DEMONIC_TEST_DEFS_ALIAS(); tick(0); eq(#sent,1)
   assert(dem.defences.reason:find('Paused'))
-  dem.hunt.stop(); cycle(); eq(commands[#commands],'summon ouroboros')
+  dem.hunt.stop(); cycle(); eq(commands[#commands],'summon arctar')
   local count=#commands
   vitals({hp='0'}); dem.onPrompt(); tick(11); eq(#commands,count); assert(not dem.defences.enabled)
   DEMONIC_TEST_DEFS_ALIAS(); tick(0); eq(#commands,count)
 end)
 
-local wraithTypes={'vigorous','whispering','translucent','fiery','midnight','glowing','reflective','ethereal'}
-local function wraithEvent(eventName,kind,count)
-  return DEMONIC_TEST_CLASS_TRIGGER(eventName,'',kind,count and tostring(count) or nil)
-end
-local statusHeader='Type          Enabled    ID        Charges   Target           Location'
-local function statusRow(kind,enabled,id,charges,target,location)
-  return string.format('%-14s%-11s%-10s%-10s%-17s%s',kind,enabled,id or '---',charges or '',target or '',location or '')
-end
-local function beginWraiths()
-  DEMONIC_TEST_CLASS_TRIGGER('Wraith status header',statusHeader)
-end
-local function wraithRow(kind,enabled,id,charges,target,location)
-  DEMONIC_TEST_CLASS_TRIGGER('Wraith status row',statusRow(kind,enabled,id,charges,target,location))
-end
-local function emptyWraithRows(except)
-  for _,kind in ipairs(wraithTypes) do
-    if not (except and except[kind]) then
-      wraithRow(kind:sub(1,1):upper()..kind:sub(2),'No')
-    end
-  end
-end
-
-test('wraith events track all eight types without commands or fabricated charges', function()
+test('disabled Diabolist handlers cannot change Summoner state', function()
   reset()
-  for _,kind in ipairs(wraithTypes) do
-    local w=dem.nightfall.wraiths[kind]; eq(w.present,nil); eq(w.charges,nil)
-    wraithEvent('Wraith materialised',kind); eq(w.present,true); eq(w.charges,nil)
-    wraithEvent('Wraith charges',kind,1); eq(w.charges,1)
-    wraithEvent('Wraith charges',kind,5); eq(w.charges,5)
-    wraithEvent('Wraith materialised',kind); eq(w.charges,5)
-    tick(65); eq(w.present,true); eq(w.charges,5)
-    wraithEvent('Wraith lost charges',kind); eq(w.charges,0); eq(w.present,true)
-    wraithEvent('Wraith vanished',kind); eq(w.present,false); eq(w.charges,nil); eq(w.id,nil)
-    wraithEvent('Wraith vanished',kind); eq(w.present,false)
+  DEMONIC_TEST_CLASS_TRIGGER('Vitality activated')
+  DEMONIC_TEST_CLASS_TRIGGER('Wraith materialised')
+  eq(dem.profession, 'summoner')
+  eq(dem.defences.active.vitality, nil); eq(dem.nightfall, nil)
+end)
+
+test('health requests the pinned ID once and exposes live percentages', function()
+  reset(); start()
+  assert(dem.health, 'denizen health module missing')
+  local function requests()
+    local n=0; for _,s in ipairs(gmcpSent) do if s=='IRE.Target.Set "1234"' then n=n+1 end end; return n
   end
-  eq(#commands,0); eq(#gmcpSent,0)
+  eq(requests(),1); eq(dem.health.get('1234'),nil)
+  event('IRE.Target.Info',{id='1234',short_desc='a warrior ant',hpperc='75%'})
+  eq(dem.health.get('1234'),75); cycle(); eq(requests(),1)
+  messages={}; dem.hunt.status(); assert(table.concat(messages):find('75%',1,true))
 end)
 
-test('wraith observations do not change Hunt action target or Nightfall defence', function()
-  reset(); start(); local target,action=dem.target,dem.balances.action
-  DEMONIC_TEST_CLASS_TRIGGER('Nightfall defence')
-  wraithEvent('Wraith charges','vigorous',3); eq(dem.nightfall.wraiths.vigorous.present,true)
-  wraithEvent('Wraith vanished','vigorous'); tick(0)
-  eq(dem.target,target); eq(dem.balances.action,action); eq(#sent,1); assert(dem.defences.active.nightfall)
-  wraithEvent('Wraith materialised','whispering'); room('Elsewhere',102)
-  eq(dem.nightfall.wraiths.whispering.present,true)
-  DEMONIC_TEST_CLASS_TRIGGER('Nightfall cease'); eq(dem.nightfall.wraiths.whispering.present,true)
-end)
-
-test('complete WRAITHS snapshots distinguish enabled absent and present with zero charges', function()
-  reset(); beginWraiths()
-  wraithRow('Vigorous','Yes','438505','0','---','here')
-  wraithRow('Whispering','Yes','387609','1','Aeden','a dark cavern')
-  wraithRow('Translucent','Yes'); wraithRow('Reflective','Yes')
-  emptyWraithRows({vigorous=true,whispering=true,translucent=true,reflective=true})
-  eq(dem.nightfall.wraiths.vigorous.present,nil)
-  dem.onPrompt()
-  local w=dem.nightfall.wraiths.vigorous
-  eq(w.enabled,true); eq(w.present,true); eq(w.id,'438505'); eq(w.charges,0); eq(w.target,nil); eq(w.location,'here')
-  w=dem.nightfall.wraiths.whispering
-  eq(w.charges,1); eq(w.target,'Aeden'); eq(w.location,'a dark cavern')
-  w=dem.nightfall.wraiths.translucent; eq(w.enabled,true); eq(w.present,false)
-  w=dem.nightfall.wraiths.fiery; eq(w.enabled,false); eq(w.present,false)
-  eq(#commands,0); eq(#gmcpSent,0)
-end)
-
-test('partial malformed duplicate and overfull WRAITHS snapshots preserve observations', function()
-  for _,bad in ipairs({'partial','charge','duplicate','id','overfull'}) do
-    reset(); wraithEvent('Wraith charges','whispering',4); beginWraiths()
-    if bad=='partial' then wraithRow('Whispering','Yes','387609','1','---','here')
-    elseif bad=='duplicate' then
-      wraithRow('Whispering','Yes','387609','1','---','here'); wraithRow('Whispering','Yes')
-      emptyWraithRows({whispering=true})
-    elseif bad=='id' then
-      wraithRow('Whispering','Yes','387609','1','---','here'); wraithRow('Vigorous','Yes','387609','2','---','here')
-      emptyWraithRows({whispering=true,vigorous=true})
-    elseif bad=='overfull' then
-      for i,kind in ipairs(wraithTypes) do
-        wraithRow(kind:sub(1,1):upper()..kind:sub(2),'Yes',i<=5 and tostring(100+i) or nil,i<=5 and '1' or nil,'---',i<=5 and 'here' or nil)
-      end
-    else
-      wraithRow('Whispering','Yes','387609','6','---','here'); emptyWraithRows({whispering=true})
-    end
-    dem.onPrompt(); eq(dem.nightfall.wraiths.whispering.charges,4)
-    eq(dem.nightfall.wraiths.vigorous.present,nil)
+test('health validates percentages without changing the attack or retiring IDs', function()
+  reset(); start(); local action=dem.balances.action
+  for _,sample in ipairs({{'0%',0}, {'100%',100}, {'25.5%',25.5}, {37,37}}) do
+    event('IRE.Target.Info',{id='1234',hpperc=sample[1]})
+    eq(dem.health.get('1234'),sample[2])
+    eq(dem.balances.action,action); assert(not dem.room.retired['1234'])
   end
-end)
-
-test('newer wraith lifecycle and charge events survive an older snapshot row', function()
-  reset(); beginWraiths()
-  wraithRow('Whispering','Yes','387609','1','---','here')
-  wraithEvent('Wraith charges','whispering',3)
-  emptyWraithRows({whispering=true}); dem.onPrompt()
-  eq(dem.nightfall.wraiths.whispering.charges,3)
-  beginWraiths(); wraithRow('Whispering','Yes','387609','1','---','here')
-  wraithEvent('Wraith vanished','whispering'); emptyWraithRows({whispering=true}); dem.onPrompt()
-  eq(dem.nightfall.wraiths.whispering.present,false); eq(dem.nightfall.wraiths.whispering.id,nil)
-end)
-
-test('wraith state and partial snapshots reset on death connection and reload', function()
-  for _,kind in ipairs({'death','connection','reload'}) do
-    reset(); wraithEvent('Wraith charges','vigorous',5); beginWraiths(); wraithRow('Whispering','Yes','387609','1','---','here')
-    if kind=='death' then vitals({hp='0'})
-    elseif kind=='connection' then raiseEvent('sysDisconnectionEvent')
-    else DEMONIC_TEST_LOAD() end
-    emptyWraithRows({whispering=true}); dem.onPrompt()
-    for _,name in ipairs(wraithTypes) do eq(dem.nightfall.wraiths[name].present,nil); eq(dem.nightfall.wraiths[name].charges,nil) end
+  for _,v in ipairs({'-1%','101%','oops','nan','1%extra',{},false,math.huge,0/0}) do
+    event('IRE.Target.Info',{id='1234',hpperc=v}); eq(dem.health.get('1234'),nil)
   end
+  assert(dem.hunt.enabled); assert(dem.room.items['1234'])
 end)
 
-test('Vitality consumption and cooldown block automatic recasts until a successful activation', function()
-  reset(); vitals()
-  for _,name in ipairs({'Summoned ouroboros','Demon armor','Demon regeneration','Soulmask','Syphoning on','Vitality activated'}) do DEMONIC_TEST_CLASS_TRIGGER(name) end
-  DEMONIC_TEST_CLASS_TRIGGER('Vitality consumed'); DEMONIC_TEST_CLASS_TRIGGER('Vitality consumed')
-  eq(dem.defences.active.vitality,false); eq(dem.defences.vitalityCooldown,true)
-  dem.defences.toggle(); dem.onPrompt(); eq(commands[#commands],'nightfall')
-  confirmDefence('Nightfall defence'); dem.balances.taken('eq'); dem.balances.recovered('eq'); dem.onPrompt()
-  local count=#commands; tick(40); dem.onPrompt(); eq(#commands,count)
-  DEMONIC_TEST_CLASS_TRIGGER('Vitality activated'); eq(dem.defences.active.vitality,true); eq(dem.defences.vitalityCooldown,false)
+test('health ignores unsolicited IDs and same-name successors stay independent', function()
+  reset(); setup(); roster({{id='1234',name='a warrior ant',attrib='m'},{id='9',name='a warrior ant',attrib='m'}})
+  dem.hunt.toggle(); roster({{id='1234',name='a warrior ant',attrib='m'},{id='9',name='a warrior ant',attrib='m'}}); tick(0)
+  event('IRE.Target.Info',{id='9',hpperc='5%'}); eq(dem.health.get('9'),nil)
+  event('IRE.Target.Info',{id='1234',hpperc='50%'})
+  event('Char.Items.Remove',{location='room',item='1234'}); cycle()
+  eq(dem.target,'9'); eq(dem.health.get('1234'),nil); eq(dem.health.get('9'),nil)
+  event('IRE.Target.Info',{id='1234',hpperc='0%'}); eq(dem.health.get('9'),nil)
+  event('IRE.Target.Info',{id='9',hpperc='80%'}); eq(dem.health.get('9'),80)
 end)
 
-test('Vitality cooldown refusal affects only its owned action and preserves observed recovery', function()
-  reset(); start(); local attack=dem.balances.action
-  DEMONIC_TEST_CLASS_TRIGGER('Vitality cooldown'); eq(dem.balances.action,attack); assert(dem.hunt.enabled)
-  for _,lost in ipairs({false,true}) do
-    reset(); vitals()
-    for _,name in ipairs({'Summoned ouroboros','Demon armor','Demon regeneration','Soulmask','Syphoning on'}) do DEMONIC_TEST_CLASS_TRIGGER(name) end
-    dem.defences.toggle(); dem.onPrompt(); eq(sent[1],'trace vitality me')
-    local action=dem.balances.action
-    if lost then dem.balances.taken('bal') end
-    DEMONIC_TEST_CLASS_TRIGGER('Vitality cooldown')
-    if lost then eq(dem.balances.action,action); dem.balances.recovered('bal') end
-    eq(dem.balances.action,nil)
-    if not lost then eq(dem.balances.bal,false); dem.balances.recovered('bal') end
-    dem.onPrompt(); eq(commands[#commands],'nightfall'); eq(dem.defences.vitalityCooldown,true)
-  end
+test('zero health reconciles once and never authorizes movement or death', function()
+  reset(); start(); gmcpSent={}
+  event('IRE.Target.Info',{id='1234',hpperc='0%'})
+  event('IRE.Target.Info',{id='1234',hpperc='0%'})
+  eq(queryCount(),1); assert(dem.room.items['1234']); assert(not dem.room.retired['1234'])
 end)
 
-test('ddef attempts Vitality once during cooldown then proceeds only after a fresh ready prompt', function()
-  reset(); dem.onPrompt('Health:363 Mana:372 (eb)'); DEMONIC_TEST_DEFS_ALIAS()
-  for _=1,5 do dem.onPrompt('Health:363 Mana:372 (eb)') end
-  eq(commands[6],'trace vitality me'); local action=dem.balances.action
-  DEMONIC_TEST_CLASS_TRIGGER('Vitality cooldown'); tick(0); eq(dem.balances.action,action); eq(#commands,6)
-  dem.onPrompt('Health:363 Mana:372'); eq(#commands,6)
-  dem.onPrompt('Health:363 Mana:372 (eb)'); eq(commands[7],'nightfall')
-  DEMONIC_TEST_CLASS_TRIGGER('Vitality cooldown'); eq(dem.balances.action.defence,'nightfall')
-  dem.onPrompt('Health:363 Mana:372 (eb)'); assert(not dem.defences.enabled)
+test('generic manual reselection keeps health on the physically pinned duplicate', function()
+  reset(); setup()
+  local ants={{id='1234',name='a warrior ant',attrib='m'},{id='9',name='a warrior ant',attrib='m'}}
+  roster(ants); dem.targeting.setDenizen('9'); dem.hunt.toggle(); roster(ants); tick(0)
+  eq(sent[1],'invoke combustion 9'); dem.targeting.setDenizen('ant')
+  eq(dem.health.requested,'9')
+  event('IRE.Target.Info',{id='1234',hpperc='20%'}); event('IRE.Target.Info',{id='9',hpperc='70%'})
+  eq(dem.health.get('9'),70); eq(dem.health.get('1234'),nil)
+  cycle(); eq(sent[2],'invoke combustion 9')
 end)
 
-test('actual supplied hunting log executes generated wraith patterns with captured types and counts', function()
-  reset(); DEMONIC_TEST_WRAITH_LOG()
-  local w=dem.nightfall.wraiths
-  eq(w.vigorous.present,true); eq(w.vigorous.charges,0)
-  eq(w.whispering.present,false); eq(w.whispering.charges,nil)
-  eq(w.reflective.present,false); eq(w.reflective.charges,nil)
-  eq(w.translucent.present,nil); eq(#commands,0); eq(#gmcpSent,0)
+test('renaming a physically pinned denizen preserves health ownership', function()
+  reset(); setup(); dem.targeting.setDenizen('ant'); dem.hunt.toggle(); roster(); tick(0)
+  eq(sent[1],'invoke combustion 1234')
+  event('IRE.Target.Info',{id='1234',hpperc='70%'})
+  event('Char.Items.Update',{location='room',item={id='1234',name='an injured soldier',attrib='m'}})
+  eq(dem.health.requested,'1234')
+  event('IRE.Target.Info',{id='1234',hpperc='60%'}); eq(dem.health.get('1234'),60)
+  cycle(); eq(sent[2],'invoke combustion 1234')
 end)
 
-test('unknown wraith types and invalid charge observations do not mutate tracked state', function()
-  reset(); wraithEvent('Wraith charges','vigorous',3)
-  for _,count in ipairs({-1,6,1.5,math.huge}) do wraithEvent('Wraith charges','vigorous',count) end
-  eq(dem.nightfall.wraiths.vigorous.charges,3)
-  wraithEvent('Wraith materialised','imaginary'); wraithEvent('Wraith charges','imaginary',1)
-  eq(dem.nightfall.wraiths.imaginary,nil); eq(#commands,0)
+test('room and connection changes discard health and old target packets', function()
+  reset(); start(); event('IRE.Target.Info',{id='1234',hpperc='40%'})
+  room('Ant colony',102); event('IRE.Target.Info',{id='1234',hpperc='10%'})
+  eq(dem.health.get('1234'),nil)
+  roster(); tick(0); event('IRE.Target.Info',{id='1234',hpperc='70%'})
+  raiseEvent('sysDisconnectionEvent'); eq(dem.health.get('1234'),nil)
+  event('IRE.Target.Info',{id='1234',hpperc='1%'}); eq(dem.health.get('1234'),nil)
 end)
 
-for _,cut in ipairs({'after Enabled','after Charges'}) do
-  test('truncated WRAITHS row '..cut..' preserves the complete previous observation', function()
-    reset(); beginWraiths(); wraithRow('Whispering','Yes','387609','4','Aeden','a dark cavern')
-    emptyWraithRows({whispering=true}); dem.onPrompt()
-    beginWraiths()
-    local truncated=cut=='after Enabled' and 'Whispering    Yes'
-      or string.format('%-14s%-11s%-10s%s','Whispering','Yes','387609','1')
-    DEMONIC_TEST_CLASS_TRIGGER('Wraith status row',truncated)
-    emptyWraithRows({whispering=true}); dem.onPrompt()
-    local w=dem.nightfall.wraiths.whispering
-    eq(w.present,true); eq(w.id,'387609'); eq(w.charges,4)
-    eq(w.target,'Aeden'); eq(w.location,'a dark cavern')
-  end)
+-- Map doubles model only external Mudlet APIs. No production pathfinding or
+-- movement decisions are replaced. Each destination/command is hand-derived.
+local function mapRooms(nodes)
+  mmp=nil
+  function getRoomArea(n) return nodes[tonumber(n)] and (nodes[tonumber(n)].area or 1) or -1 end
+  function getRoomExits(n) return nodes[tonumber(n)] and (nodes[tonumber(n)].exits or {}) or nil end
+  function roomLocked(n) return nodes[tonumber(n)] and nodes[tonumber(n)].locked or false end
+  function hasExitLock(n,d) return nodes[tonumber(n)].locks and nodes[tonumber(n)].locks[d] or false end
+  function getDoors(n) return nodes[tonumber(n)].doors or {} end
+end
+local function explore(nodes,items)
+  reset(); setup(); mapRooms(nodes or {[101]={exits={north=102}},[102]={exits={south=101}}})
+  DEMONIC_TEST_EXPLORE_ALIAS(); assert(dem.hunt.enabled); roster(items or {}); tick(0)
+end
+local function confirmClear() roster({}); tick(0) end
+local function directions()
+  local result={}; local dirs={n=true,ne=true,e=true,se=true,s=true,sw=true,w=true,nw=true,u=true,d=true,['in']=true,out=true}
+  for _,s in ipairs(commands) do if dirs[s] then result[#result+1]=s end end
+  return table.concat(result,',')
 end
 
-test('a cooldown refusal cannot retire an already confirmed Vitality before its real recovery', function()
-  reset(); vitals()
-  local action={kind='defence',defence='vitality',resource='bal',started=dem.now()}
-  assert(dem.balances.beginAction(action))
-  DEMONIC_TEST_CLASS_TRIGGER('Vitality activated'); assert(action.confirmed)
-  DEMONIC_TEST_CLASS_TRIGGER('Vitality cooldown')
-  eq(dem.balances.action,action); assert(not action.rejected); assert(not action.completed)
-  eq(dem.defences.active.vitality,true)
-  dem.balances.taken('bal'); eq(dem.balances.action,action)
-  dem.balances.recovered('bal'); eq(dem.balances.action,nil)
+test('exploration confirms clear before sending exactly one movement', function()
+  explore(); eq(directions(),''); assert(dem.hunt.enabled)
+  confirmClear(); eq(directions(),'n'); assert(dem.navigation.pending)
+  dem.onPrompt(); vitals(); tick(1); eq(directions(),'n'); eq(#sent,0)
+  room('Ant colony',102); tick(0); eq(directions(),'n'); eq(#sent,0)
+  roster({{id='9',name='a warrior ant',attrib='m'}}); tick(0)
+  eq(sent[1],'invoke combustion 9'); eq(dem.navigation.pending,nil)
 end)
 
-test('Vitality ready clears only cooldown without arming the defence or granting recovery', function()
-  reset(); start(); local action,bal,eqReady=dem.balances.action,dem.balances.bal,dem.balances.eq
-  DEMONIC_TEST_CLASS_TRIGGER('Vitality consumed')
-  DEMONIC_TEST_CLASS_TRIGGER('Vitality ready'); DEMONIC_TEST_CLASS_TRIGGER('Vitality ready'); tick(0)
-  eq(dem.defences.vitalityCooldown,false); eq(dem.defences.active.vitality,false)
-  eq(dem.balances.action,action); eq(dem.balances.bal,bal); eq(dem.balances.eq,eqReady)
-  eq(#sent,1); assert(not dem.defences.enabled)
+test('exploration fights until final roster reconciliation and real action recovery', function()
+  explore(nil,{{id='1234',name='a warrior ant',attrib='m'}}); eq(sent[1],'invoke combustion 1234')
+  vitals({eq='0'}); dem.hunt.onKill('a warrior ant'); confirmClear(); eq(directions(),'')
+  vitals(); tick(0); confirmClear(); eq(directions(),'n')
 end)
 
-test('Vitality ready allows maintenance to rearm only when normal readiness permits', function()
-  reset(); vitals()
-  for _,name in ipairs({'Summoned ouroboros','Demon armor','Demon regeneration','Soulmask','Syphoning on','Vitality activated','Nightfall defence'}) do DEMONIC_TEST_CLASS_TRIGGER(name) end
-  DEMONIC_TEST_CLASS_TRIGGER('Vitality consumed'); dem.defences.toggle(); dem.onPrompt(); eq(#sent,0)
-  dem.balances.taken('bal'); DEMONIC_TEST_CLASS_TRIGGER('Vitality ready'); tick(0); eq(#sent,0)
-  eq(dem.defences.active.vitality,false)
-  dem.balances.recovered('bal'); tick(0); eq(sent[1],'trace vitality me'); eq(#sent,1)
-  local action=dem.balances.action
-  DEMONIC_TEST_CLASS_TRIGGER('Vitality ready'); tick(0); eq(dem.balances.action,action); eq(#sent,1)
-  eq(dem.defences.active.vitality,false)
+test('new listed arrivals invalidate clear confirmation and get attacked', function()
+  explore(); event('Char.Items.Add',{location='room',item={id='9',name='a warrior ant',attrib='m'}})
+  roster({{id='9',name='a warrior ant',attrib='m'}}); tick(0)
+  eq(directions(),''); eq(sent[1],'invoke combustion 9')
+end)
+
+test('exploration ignores unlisted protected and dead entries for departure', function()
+  local ignored={{id='1',name='Fido',attrib='m'},{id='2',name='a warrior ant',attrib='mx'},{id='3',name='a warrior ant',attrib='md'}}
+  explore(nil,ignored); roster(ignored); tick(0); eq(directions(),'n'); eq(#sent,0)
+end)
+
+test('BFS chooses nearest rooms and numeric destination ties', function()
+  explore({[101]={exits={north=103,east=102}},[102]={},[103]={}})
+  confirmClear(); eq(directions(),'e'); eq(dem.navigation.destination,'102')
+end)
+
+test('BFS backtracks through checked rooms and stops after a branching pass', function()
+  explore({[101]={exits={north=102,east=103}},[102]={exits={south=101}},[103]={exits={west=101}}})
+  confirmClear(); eq(directions(),'n'); room('Ant colony',102); confirmClear(); confirmClear()
+  eq(directions(),'n,s'); room('Ant colony',101); confirmClear(); confirmClear()
+  eq(directions(),'n,s,e'); room('Ant colony',103); confirmClear(); confirmClear()
+  assert(not dem.hunt.enabled); eq(directions(),'n,s,e'); eq(dem.navigation.pending,nil)
+  assert(table.concat(messages):lower():find('complete',1,true))
+end)
+
+test('cycles terminate without endlessly revisiting rooms', function()
+  explore({[101]={exits={east=102}},[102]={exits={south=103}},[103]={exits={west=101}}})
+  confirmClear(); room('Ant colony',102); confirmClear(); confirmClear()
+  room('Ant colony',103); confirmClear(); confirmClear()
+  eq(directions(),'e,s'); assert(not dem.hunt.enabled)
+end)
+
+test('exploration excludes locked closed unmapped and other-area destinations', function()
+  explore({[101]={exits={north=102,east=103,south=104,west=105,up=999,down=106},locks={east=true},doors={south=2}},
+    [102]={locked=true},[103]={},[104]={},[105]={area=2},[106]={}})
+  confirmClear(); eq(directions(),'d')
+end)
+
+test('exploration rejects missing map APIs and empty hunt lists without enabling', function()
+  reset(); setup(); getRoomArea=nil; assert(not dem.hunt.toggle('explore')); assert(not dem.hunt.enabled)
+  mapRooms({}); assert(not dem.hunt.toggle('explore')); assert(not dem.hunt.enabled)
+  mapRooms({[101]={}}); dem.hunt.remove('a warrior ant')
+  assert(not dem.hunt.toggle('explore')); assert(not dem.hunt.enabled)
+end)
+
+test('movement barrier blocks emergency shielding until arrival roster', function()
+  explore(); confirmClear(); vitals({hp='40',maxhp='100'}); dem.onPrompt(); eq(#sent,0)
+  room('Ant colony',102); dem.onPrompt(); eq(#sent,0)
+  roster({}); dem.onPrompt(); eq(sent[1],'unleash arctar at me')
+end)
+
+test('exploration waits for standing unstunned readiness and shields before leaving', function()
+  explore(); vitals({prone='1'}); confirmClear(); eq(directions(),'')
+  vitals({prone='0',stunned='1'}); tick(0); eq(directions(),'')
+  vitals({stunned='0',bal='0'}); tick(0); eq(directions(),'')
+  vitals({hp='40',maxhp='100'}); tick(0); eq(sent[1],'unleash arctar at me'); eq(directions(),'')
+end)
+
+test('movement timeout never retries a direction and stops Hunt', function()
+  explore(); confirmClear(); tick(10); eq(directions(),'n'); assert(not dem.hunt.enabled)
+  tick(20); eq(directions(),'n'); eq(dem.navigation.pending,nil)
+end)
+
+test('wrong direction packet stops a pending automatic movement', function()
+  explore(); confirmClear(); event('Room.WrongDir','n'); tick(0)
+  assert(not dem.hunt.enabled); eq(directions(),'n')
+end)
+
+test('unexpected arrivals and area changes stop before attacking', function()
+  for _,arrival in ipairs({{id=900,area='Ant colony'},{id=102,area='Elsewhere'}}) do
+    explore(); confirmClear(); room(arrival.area,arrival.id); roster(); tick(0)
+    assert(not dem.hunt.enabled); eq(#sent,0); eq(directions(),'n')
+  end
+end)
+
+test('manual denizen targeting ends exploration and preserves stationary combat', function()
+  explore(nil,{{id='2335',name='Fido',attrib='m'}}); dem.targeting.setDenizen('2335'); tick(0)
+  assert(not dem.navigation.active); assert(dem.hunt.enabled); eq(sent[1],'invoke combustion 2335'); eq(directions(),'')
+end)
+
+test('manual targeting during transit cannot bypass the movement barrier', function()
+  explore(); confirmClear(); dem.targeting.setDenizen('1234'); roster(); tick(0)
+  eq(#sent,0); eq(directions(),'n'); assert(not dem.hunt.enabled)
+end)
+
+test('stop death connection and reload cancel navigation callbacks', function()
+  for _,cancel in ipairs({function() dem.hunt.toggle() end,function() vitals({hp='0'}) end,
+      function() raiseEvent('sysDisconnectionEvent') end,function() DEMONIC_TEST_LOAD() end}) do
+    explore(); confirmClear(); cancel(); tick(20)
+    assert(not dem.hunt.enabled); assert(not dem.navigation.active); eq(dem.navigation.pending,nil); eq(directions(),'n')
+  end
+end)
+
+test('clear roster timeout stops exploration without a movement', function()
+  explore(); tick(10); assert(not dem.hunt.enabled); eq(directions(),'')
+end)
+
+test('mapper speedwalking cannot run concurrently with exploration', function()
+  explore(); mmp={autowalking=true}; confirmClear(); assert(not dem.hunt.enabled); eq(directions(),'')
+end)
+
+test('path ties use alphabetic direction commands rather than intermediate ID order', function()
+  explore({[101]={exits={north=102,east=103}},[102]={exits={east=104}},[103]={exits={north=104}},[104]={}})
+  -- Both intermediate rooms were already checked; 104 has two equally short paths.
+  dem.navigation.visited['102']=true; dem.navigation.visited['103']=true
+  confirmClear(); eq(directions(),'e'); eq(dem.navigation.destination,'104')
+end)
+
+test('arrival without a full roster times out and no stale roster attacks', function()
+  explore(); confirmClear(); room('Ant colony',102)
+  event('Char.Items.Add',{location='room',item={id='9',name='a warrior ant',attrib='m'}}); tick(0)
+  eq(#sent,0); tick(10); assert(not dem.hunt.enabled); eq(#sent,0); eq(directions(),'n')
+end)
+
+test('an unsolicited full list for the old room cannot release the movement barrier', function()
+  explore(); confirmClear(); roster(); dem.onPrompt(); eq(#sent,0); assert(dem.navigation.pending)
+  room('Ant colony',102); tick(0); eq(#sent,0)
+  roster({{id='9',name='a warrior ant',attrib='m'}}); tick(0); eq(sent[1],'invoke combustion 9')
+end)
+
+test('explicit player selection and clear stop exploration without a movement', function()
+  for _,select in ipairs({function() dem.targeting.setPlayer('Aeden') end,function() dem.targeting.clear() end}) do
+    explore(); select(); tick(20); assert(not dem.hunt.enabled); assert(not dem.navigation.active); eq(directions(),'')
+  end
+end)
+
+test('resource stops and active combat prevent exploration from departing', function()
+  explore(); vitals({mp='1',maxmp='100'}); confirmClear(); assert(not dem.hunt.enabled); eq(directions(),'')
+  explore(); dem.settings.hpLimit=60; vitals({hp='50',maxhp='100'}); confirmClear()
+  assert(not dem.hunt.enabled); eq(directions(),'')
+end)
+
+test('restarting a completed pass visits the area again without restored session state', function()
+  explore({[101]={}}); confirmClear(); assert(not dem.hunt.enabled)
+  mapRooms({[101]={exits={north=102}},[102]={}}); DEMONIC_TEST_EXPLORE_ALIAS(); confirmClear(); confirmClear()
+  eq(directions(),'n'); assert(dem.navigation.active)
+end)
+
+test('listed respawns in a backtracking room are fought before taking the next step', function()
+  explore({[101]={exits={north=102,east=103}},[102]={exits={south=101}},[103]={}})
+  confirmClear(); room('Ant colony',102); confirmClear(); confirmClear(); eq(directions(),'n,s')
+  room('Ant colony',101); roster({{id='9',name='a warrior ant',attrib='m'}}); tick(0)
+  eq(sent[1],'invoke combustion 9'); eq(directions(),'n,s')
+end)
+
+test('removing the final allowlist entry stops exploration instead of clearing the area', function()
+  explore(); dem.hunt.remove('a warrior ant'); confirmClear()
+  assert(not dem.hunt.enabled); eq(directions(),'')
 end)
 
 for _, t in ipairs(tests) do

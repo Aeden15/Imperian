@@ -1,15 +1,19 @@
--- Class registry and maintenance share the same action gate as Hunt.
-dem.diabolist = {defences = {
-  {name = 'ouroboros', skill = 'malignosis', resource = 'prompt'},
-  {name = 'armor', skill = 'malignosis', resource = 'prompt'},
-  {name = 'regeneration', skill = 'malignosis', resource = 'prompt'},
-  {name = 'soulmask', skill = 'malignosis', resource = 'prompt'},
-  {name = 'syphon', skill = 'malignosis', resource = 'prompt'},
-  {name = 'vitality', skill = 'ritualism', resource = 'bal', mana = 9},
-  {name = 'nightfall', skill = 'nightfall', resource = 'eq', mana = 27}
-}}
-dem.defences = {enabled = false, active = {}, reason = 'Disabled.'}
+-- The setup pass and optional maintenance share the action gate with Hunt.
+local entries = {
+  {name = 'arctar', command = 'summon arctar', resource = 'eq', mana = 27},
+  {name = 'warmth', command = 'invoke warmth', resource = 'prompt'},
+  {name = 'astralvision', command = 'invoke astralvision', resource = 'prompt'},
+  {name = 'distortion', command = 'invoke distortion', resource = 'prompt'},
+  {name = 'mindseye', command = 'touch mindseye', resource = 'prompt'}
+}
+local known = {shield = true}
+for _, entry in ipairs(entries) do known[entry.name] = true end
+dem.defences = {
+  enabled = false, active = {}, reason = 'Disabled.',
+  cooldowns = {arctar = false, unleash = false}, arctarMana = 18
+}
 local defences = dem.defences
+local arctarLine, arctarUnleashed
 
 function defences.stop(reason)
   local wasEnabled = defences.enabled
@@ -26,7 +30,8 @@ end
 function defences.reset(reason)
   defences.stop(reason)
   defences.active = {}
-  defences.vitalityCooldown = nil
+  defences.cooldowns = {arctar = false, unleash = false}
+  defences.endPrompt()
   dem.cancel('defence-watchdog')
 end
 
@@ -54,18 +59,8 @@ function defences.run()
 end
 
 function defences.setActive(name, active)
-  local known = false
-  for _, entry in ipairs(dem.diabolist.defences) do
-    if entry.name == name then known = true; break end
-  end
-  if not known or type(active) ~= 'boolean' then return false end
+  if not known[name] or type(active) ~= 'boolean' then return false end
   defences.active[name] = active
-  if name == 'vitality' and active then defences.vitalityCooldown = false end
-  if name == 'ouroboros' and not active then
-    for _, dependent in ipairs({'armor', 'regeneration', 'soulmask', 'syphon'}) do
-      defences.active[dependent] = false
-    end
-  end
   local action = dem.balances.action
   if active and action and action.kind == 'defence' and action.defence == name then
     dem.balances.confirmDefence(action)
@@ -74,23 +69,57 @@ function defences.setActive(name, active)
   return true
 end
 
-function defences.onVitalityConsumed()
-  defences.vitalityCooldown = true
-  defences.setActive('vitality', false)
-end
-
-function defences.onVitalityReady()
-  defences.vitalityCooldown = false
+function defences.onCooldownReady(name)
+  if defences.cooldowns[name] == nil then return end
+  defences.cooldowns[name] = false
   dem.schedule()
 end
 
-function defences.onVitalityCooldown()
-  defences.vitalityCooldown = true
+function defences.onShield(source)
+  defences.setActive('shield', true)
   local action = dem.balances.action
-  if action and action.kind == 'defence' and action.defence == 'vitality' then
-    dem.balances.refuseDefence(action)
+  if action and action.kind == 'shield' and action.source == source
+      and (source ~= 'arctar' or arctarUnleashed) then
+    dem.balances.confirmAction(action)
   end
-  dem.schedule()
+end
+
+local arctarMessages = {
+  summon = 'You close your eyes and reach out with your mind towards the Demon Plane, seeking out the presence of Arctar, the Defender. Your search is successful and a burden descends upon your soul as the possession takes hold.',
+  banish = 'You close your eyes and focus all your willpower on the demon that is possessing you, driving away the presence of Arctar, the Defender.'
+}
+local unleashPrefix = 'You focus upon your pact and a terrifying visage of '
+local arctarUnleashPrefix = unleashPrefix .. 'Arctar, the Defender appears briefly in front of '
+local arctarSelf = arctarUnleashPrefix .. 'yourself, wreathed in flames.'
+
+function defences.onArctarLine(line)
+  if not arctarLine and line:sub(1, 23) ~= 'You close your eyes and'
+      and line:sub(1, #unleashPrefix) ~= unleashPrefix then return end
+  line = dem.trim(line):gsub('%s+', ' ')
+  local candidate = arctarLine and (arctarLine .. ' ' .. line) or line
+  arctarLine = nil
+  for kind, message in pairs(arctarMessages) do
+    if candidate == message then
+      defences.setActive('arctar', kind == 'summon')
+      return
+    end
+    if message:sub(1, #candidate + 1) == candidate .. ' ' then
+      arctarLine = candidate
+    end
+  end
+  if candidate:match('^You focus upon your pact and a terrifying visage of .+, wreathed in flames%.$') then
+    defences.cooldowns.unleash = true
+    if candidate:sub(1, #arctarUnleashPrefix) == arctarUnleashPrefix then
+      defences.cooldowns.arctar = true
+      arctarUnleashed = candidate == arctarSelf
+    end
+  elseif (#candidate < 300 and candidate:sub(1, #unleashPrefix) == unleashPrefix) then
+    arctarLine = candidate
+  end
+end
+
+function defences.endPrompt()
+  arctarLine, arctarUnleashed = nil, nil
 end
 
 local function finite(n)
@@ -98,8 +127,7 @@ local function finite(n)
 end
 
 local function submit(entry, manualPass)
-  local command = dem[entry.skill].buildDefence(entry.name)
-  if not command then defences.stop('Cannot build ' .. entry.name .. '.'); return end
+  local command = entry.command
   local action = {kind = 'defence', defence = entry.name,
     resource = manualPass and 'prompt' or entry.resource, manualPass = manualPass, started = dem.now()}
   if not dem.balances.beginAction(action) then return end
@@ -118,8 +146,8 @@ local function runPass()
   if pass.action and pass.action.completed then
     pass.index, pass.action = pass.index + 1, nil
   end
-  local entry = dem.diabolist.defences[pass.index]
-  if not entry then defences.stop('Complete; all seven commands submitted.'); return end
+  local entry = entries[pass.index]
+  if not entry then defences.stop('Complete.'); return end
   if b.action then defences.reason = 'Waiting for the current command to finish.'; return end
   -- A manual pass can use the displayed compact prompt. It need not invent a
   -- maximum or assume the game reports optional prone/stunned GMCP fields.
@@ -155,8 +183,8 @@ function defences.step()
   if not b.bal or not b.eq or v.prone or v.stunned then
     defences.reason = 'Waiting for balance, equilibrium, standing and unstunned status.'; return
   end
-  for _, entry in ipairs(dem.diabolist.defences) do
-    if not defences.active[entry.name] and (entry.name ~= 'vitality' or not defences.vitalityCooldown) then
+  for _, entry in ipairs(entries) do
+    if not defences.active[entry.name] then
       if entry.mana and v.mp < entry.mana then
         defences.reason = 'Waiting for enough mana for ' .. entry.name .. '.'; return
       end
@@ -164,6 +192,5 @@ function defences.step()
       return
     end
   end
-  defences.reason = defences.vitalityCooldown and 'Vitality is unavailable; other listed defences are confirmed active.'
-    or 'All listed defences are confirmed active.'
+  defences.reason = 'All listed defences are confirmed active.'
 end

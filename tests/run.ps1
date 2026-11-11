@@ -15,9 +15,10 @@ $scripts = @($package.SelectNodes('//ScriptPackage//Script/script'))
 $sourceFiles = @{
     'Core' = 'core'; 'Targeting' = 'targeting'; 'Balances and Vitals' = 'balances'
     'Room Tracking' = 'room'; 'Hunt Controller' = 'hunt'
-    'Room GUI' = 'ui'
+    'Denizen Health' = 'health'; 'Mapped Exploration' = 'navigation'
+    'Room GUI' = 'ui'; 'Defence Controller' = 'defences'
     'Ritualism Commands' = 'ritualism'; 'Initialize Demonic' = 'bootstrap'
-    'Malignosis Commands' = 'malignosis'; 'Diabolist defences' = 'defences'; 'Nightfall Commands' = 'nightfall'
+    'Malignosis Commands' = 'malignosis'; 'Diabolist defences' = 'diabolist_defences'; 'Nightfall Commands' = 'nightfall'
 }
 if ($scripts.Count -ne $sourceFiles.Count) { throw 'Unexpected embedded Script count.' }
 # The export is flat: Package Manager supplies the single Demonic wrapper.
@@ -26,9 +27,10 @@ if ($scripts.Count -ne $sourceFiles.Count) { throw 'Unexpected embedded Script c
 $preserved = $package.Clone()
 $owned = @{
     Script = @($sourceFiles.Keys)
-    Alias = @('Hunt mode','Hunt add','Hunt remove','Hunt list','Hunt status','Hunt limits','Targeting','Show room GUI','Hide room GUI','Reset room GUI','Defs')
+    Alias = @('Hunt mode','Hunt explore','Hunt add','Hunt remove','Hunt list','Hunt status','Hunt limits','Targeting','Show room GUI','Hide room GUI','Reset room GUI','Defs')
     Trigger = @('Balance loss duration','Equilibrium loss duration','Balance regained','Equilibrium regained','Balance unavailable','Equilibrium unavailable','Prompt readiness','Denizen slain','Target absent','Grace blocks attack','Vitality activated','Demon regeneration','Demon armor','Missing ouroboros','Summoned ouroboros','Soulmask','Syphon ceased','Syphoning on','Nightfall defence','Nightfall cease','Vitality consumed','Vitality cooldown','Vitality ready','Wraith materialised','Wraith charges','Wraith lost charges','Wraith vanished','Wraith status header','Wraith status row')
 }
+$owned.Trigger += @('Warmth','Astralvision','Distortion up','Distortion down','Mindseye activated','Mindseye stripped','Tattoo shield','Shield faded','Arctar shield','Unleash ready','Arctar ready','Enslavery output')
 foreach ($tag in $owned.Keys) {
     foreach ($node in @($preserved.SelectNodes(('//' + $tag)))) {
         if ($node.SelectSingleNode('name').InnerText -cin $owned[$tag]) { [void]$node.ParentNode.RemoveChild($node) }
@@ -37,27 +39,30 @@ foreach ($tag in $owned.Keys) {
 if ($preserved.OuterXml -cne $template.OuterXml) { throw 'Build changed the preserved export layout or metadata.' }
 foreach ($kind in @('Trigger','Alias','Script')) {
     $top = @($package.SelectNodes(('//{0}Package/{0}Group/name' -f $kind)) | ForEach-Object { $_.InnerText })
-    $expected = if ($kind -eq 'Script') { 'System|Diabolist' } else { 'Diabolist|System' }
+    $expected = if ($kind -eq 'Script') { 'System|Diabolist|Summoner' } else { 'Diabolist|System|Summoner' }
     if (($top -join '|') -cne $expected) { throw ('Flat export roots changed: ' + $kind) }
     if ($package.SelectNodes(('//{0}Package//{0}Group[name="Demonic"]' -f $kind)).Count -ne 0) {
         throw ('Duplicate inner Demonic folder: ' + $kind)
     }
 }
 $sharedOrder = @($package.SelectNodes('//ScriptPackage/ScriptGroup[name="System"]/*[self::Script or self::ScriptGroup]/name') | ForEach-Object { $_.InnerText })
-if (($sharedOrder[0..2] -join '|') -cne 'Core|Targeting|Balances and Vitals') { throw 'Shared scripts must load before child modules.' }
+if (($sharedOrder[0..3] -join '|') -cne 'Core|Targeting|Balances and Vitals|Defence Controller') { throw 'Shared scripts must load before child modules.' }
 $lastScript = $package.SelectSingleNode('//ScriptPackage/*[self::Script or self::ScriptGroup][last()]')
 if ($lastScript.LocalName -cne 'Script' -or $lastScript.SelectSingleNode('name').InnerText -cne 'Initialize Demonic') {
     throw 'Initialize Demonic must be the final standalone script.'
 }
 $config = Get-Content -LiteralPath (Join-Path $root 'Demonic/config.lua') -Raw
-if ($config -cnotmatch '(?m)^created = "2026-11-07T16:29:35-06:00"\r?$') { throw 'Export creation timestamp was not preserved.' }
-if ($config -cnotmatch '(?m)^mpackage = \[\[Demonic\]\]\r?$' -or $config -cnotmatch '(?m)^version = \[\[0\.1\.12\]\]\r?$' -or $config -cnotmatch '(?s)description = \[\[Shared targeting.+?\]\]') {
+if ($config -cnotmatch '(?m)^created = "2026-11-10T21:24:53-06:00"\r?$') { throw 'Export creation timestamp was not preserved.' }
+if ($config -cnotmatch '(?m)^mpackage = \[\[Demonic\]\]\r?$' -or $config -cnotmatch '(?m)^version = \[\[0\.1\.13\]\]\r?$' -or $config -cnotmatch '(?s)description = \[\[Shared targeting.+?\]\]') {
     throw 'Package version or description is missing.'
 }
 foreach ($name in $sourceFiles.Keys) {
     $nodes = @($package.SelectNodes(('//ScriptPackage//Script[name="{0}"]/script' -f $name)))
     $source = Get-Content -LiteralPath (Join-Path $root ('Demonic/src/{0}.lua' -f $sourceFiles[$name])) -Raw
-    if ($nodes.Count -ne 1 -or $nodes[0].InnerText -cne $source) {
+    if ($nodes.Count -eq 1 -and $nodes[0].SelectSingleNode('ancestor::ScriptGroup[name="Diabolist"]')) {
+        $source = 'if not dem or dem.profession ~= "diabolist" then return end' + "`n" + $source
+    }
+    if ($nodes.Count -ne 1 -or $nodes[0].InnerText -cne $source.Replace("`r`n", "`n")) {
         throw ('Embedded Script does not match its source: ' + $name)
     }
 }
@@ -85,6 +90,13 @@ if ($targetAlias.name -cne 'Targeting' -or $targetAlias.regex -cne '^t (\w+)$' -
 }
 if ($package.SelectNodes('//Alias[@isActive="yes" and name="Targeting"]').Count -ne 1) { throw 'Expected one active Targeting alias.' }
 if ($package.SelectNodes('//Alias[@isActive="yes" and regex="^hunt$"]').Count -ne 1) { throw 'Expected one active Hunt mode alias.' }
+$exploreNodes = @($package.SelectNodes('//AliasPackage/AliasGroup[name="System"]/AliasGroup[name="Autobasher"]/Alias[name="Hunt explore"]'))
+if ($exploreNodes.Count -ne 1 -or $exploreNodes[0].regex -cne '^hunt explore$' -or $exploreNodes[0].GetAttribute('isActive') -cne 'yes') {
+    throw 'Expected one active, anchored Hunt explore alias under System/Autobasher.'
+}
+foreach ($text in @('hunt explore extra','prefix hunt explore','hunt','hunt explorer')) {
+    if ($text -cmatch $exploreNodes[0].regex) { throw ('Hunt explore accepts an unrelated command: ' + $text) }
+}
 if ($package.SelectNodes('//Alias[name="Target player" or name="Target denizen" or name="Clear target"]').Count -ne 0) {
     throw 'Legacy targeting aliases remain in the package.'
 }
@@ -204,10 +216,11 @@ try {
         $chunks.Add(('assert((loadstring or load)([====[{0}]====], {1}))()' -f $script.InnerText, ('"' + $label + '"')))
     }
     $chunks.Add('end')
-    $defsAlias = $package.SelectSingleNode('//AliasPackage//Alias[name="Defs"]')
+    $defsAlias = $package.SelectSingleNode('//AliasPackage/AliasGroup[name="Summoner"]/Alias[name="Defs"]')
     $huntAlias = $package.SelectSingleNode('//AliasPackage//Alias[name="Hunt mode"]')
     $prompt = $package.SelectSingleNode('//TriggerPackage//Trigger[name="Prompt readiness"]')
-    foreach ($entry in @(@('DEMONIC_TEST_DEFS_ALIAS',$defsAlias), @('DEMONIC_TEST_HUNT_ALIAS',$huntAlias), @('DEMONIC_TEST_PROMPT',$prompt))) {
+    $exploreAlias = $exploreNodes[0]
+    foreach ($entry in @(@('DEMONIC_TEST_DEFS_ALIAS',$defsAlias), @('DEMONIC_TEST_HUNT_ALIAS',$huntAlias), @('DEMONIC_TEST_EXPLORE_ALIAS',$exploreAlias), @('DEMONIC_TEST_PROMPT',$prompt))) {
         if (!$entry[1]) { throw ('Missing entry for ' + $entry[0]) }
         $chunks.Add(('function {0}() line=""; matches={{}}; return assert((loadstring or load)([====[{1}]====],"actual alias/trigger"))() end' -f $entry[0],$entry[1].script))
     }
@@ -216,19 +229,25 @@ try {
         $chunks.Add(('if name == [====[{0}]====] then return assert((loadstring or load)([====[{1}]====],"class trigger"))() end' -f $node.name,$node.script))
     }
     $chunks.Add('error("Unknown class trigger: " .. tostring(name)) end')
-    # Match the supplied log with the generated regexes, then execute their actual
-    # Lua bodies and captures. Only Mudlet's native regex engine is substituted.
-    $chunks.Add('function DEMONIC_TEST_WRAITH_LOG()')
-    $wraithFolder = $package.SelectSingleNode('//TriggerPackage/TriggerGroup[name="Diabolist"]/TriggerGroup[name="Nightfall"]/TriggerGroup[name="Wraiths"]')
-    foreach ($text in Get-Content -LiteralPath (Join-Path $PSScriptRoot 'fixtures/wraith-events.txt')) {
-        foreach ($trigger in $wraithFolder.SelectNodes('Trigger')) {
-            $hit = [regex]::Match($text, $trigger.regexCodeList.string)
-            if (!$hit.Success) { continue }
-            $captures = @($hit.Groups | ForEach-Object { '[====[' + $_.Value + ']====]' }) -join ','
-            $chunks.Add(('line=[====[{0}]====]; matches={{{1}}}; assert((loadstring or load)([====[{2}]====],"log trigger"))()' -f $text,$captures,$trigger.script))
+    # Replay the game lines through the generated patterns and actual Lua bodies.
+    $defenceTriggers = $package.SelectNodes('//TriggerPackage/TriggerGroup[name="Summoner"]//Trigger | //TriggerPackage/TriggerGroup[name="System"]//TriggerGroup[name="Defences"]/Trigger')
+    $chunks.Add('local defenceLogs = {}')
+    $log = $null
+    foreach ($line in Get-Content -LiteralPath (Join-Path $PSScriptRoot 'fixtures/summoner-defences.txt')) {
+        if ($line -cmatch '^\[([a-z-]+)\]$') {
+            if ($log) { $chunks.Add('end') }
+            $log = $Matches[1]
+            $chunks.Add(('defenceLogs["{0}"] = function()' -f $log))
+            continue
+        }
+        foreach ($trigger in $defenceTriggers) {
+            if ($line -cmatch $trigger.regexCodeList.string) {
+                $chunks.Add(('line=[====[{0}]====]; assert((loadstring or load)([====[{1}]====],"defence trigger"))()' -f $line,$trigger.script))
+            }
         }
     }
     $chunks.Add('end')
+    $chunks.Add('function DEMONIC_TEST_DEFENCE_LOG(name) return assert(defenceLogs[name], name)() end')
     $chunks.Add('function DEMONIC_TEST_GUI_ALIAS(command)')
     foreach ($command in $guiContracts.Keys) {
         $node = $guiFolder.SelectSingleNode(('Alias[name="{0}"]' -f $guiContracts[$command][0]))

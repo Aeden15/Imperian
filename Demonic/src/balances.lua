@@ -29,7 +29,7 @@ local function readiness(kind, ready, explicitRecovery)
       balances.action.lost = true
     elseif ready == true and (explicitRecovery or balances.action.lost) then
       balances.action.recovered = true
-      if balances.action.kind ~= 'defence' or balances.action.confirmed or balances.action.refused then release() end
+      if not balances.action.requiresConfirmation or balances.action.confirmed or balances.action.refused then release() end
     end
   end
 end
@@ -104,6 +104,7 @@ end
 function balances.beginAction(action)
   if type(action) ~= 'table' or balances.action then return false end
   action.resource = action.resource or 'bal'
+  if action.kind == 'defence' or action.kind == 'shield' then action.requiresConfirmation = true end
   action.lost = balances[action.resource] == false
   action.readiness = {bal = readinessSerial.bal, eq = readinessSerial.eq}
   action.sentPrompt = dem.runtime.promptSerial or 0
@@ -113,19 +114,23 @@ function balances.beginAction(action)
   return true
 end
 
-function balances.confirmDefence(action)
-  if balances.action ~= action or action.kind ~= 'defence' then return false end
+function balances.confirmAction(action)
+  if balances.action ~= action or not action.requiresConfirmation then return false end
   if not action.confirmed then
     action.confirmed = true
     action.confirmedPrompt = dem.runtime.promptSerial or 0
+    if action.resource == 'prompt' and not action.manualPass then
+      action.readiness = {bal = readinessSerial.bal, eq = readinessSerial.eq}
+    end
   end
   if action.resource ~= 'prompt' and action.recovered then release() end
   return true
 end
+balances.confirmDefence = balances.confirmAction
 
 function balances.onPrompt()
   local action = balances.action
-  if action and action.kind == 'defence' and action.resource == 'prompt'
+  if action and action.requiresConfirmation and action.resource == 'prompt'
       and (action.manualPass or action.confirmed)
       and (dem.runtime.promptSerial or 0) > (action.manualPass and action.sentPrompt or action.confirmedPrompt)
       and readinessSerial.bal > action.readiness.bal and readinessSerial.eq > action.readiness.eq
@@ -133,7 +138,7 @@ function balances.onPrompt()
 end
 
 function balances.rejectAction(action)
-  if not action or balances.action ~= action or action.lost then return false end
+  if not action or balances.action ~= action or action.lost or action.confirmed then return false end
   -- A confirmed refusal has no balance cycle to wait for. Leave readiness
   -- exactly as observed; in particular do not undo beginAction's pessimism.
   action.rejected = true

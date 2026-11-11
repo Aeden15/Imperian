@@ -66,15 +66,18 @@ function Add-Trigger($parent, [string]$name, [string]$pattern, [string]$script, 
 $scriptRoot = Get-Group '//ScriptPackage'
 $system = Get-Group '//ScriptPackage/ScriptGroup[name="System"]'
 # Add in reverse order because these shared scripts must precede child folders.
+Add-Script $system 'Defence Controller' 'defences' $true
 Add-Script $system 'Balances and Vitals' 'balances' $true
 Add-Script $system 'Targeting' 'targeting' $true
 Add-Script $system 'Core' 'core' $true
 Add-Script (Get-Group '//ScriptPackage//ScriptGroup[name="Api stuff"]') 'Room Tracking' 'room'
+Add-Script (Get-Group '//ScriptPackage//ScriptGroup[name="Api stuff"]') 'Denizen Health' 'health'
 Add-Script (Get-Group '//ScriptPackage//ScriptGroup[name="Autobasher"]') 'Hunt Controller' 'hunt'
+Add-Script (Get-Group '//ScriptPackage//ScriptGroup[name="Autobasher"]') 'Mapped Exploration' 'navigation'
 Add-Script (Get-Group '//ScriptPackage//ScriptGroup[name="GUI"]') 'Room GUI' 'ui'
 Add-Script (Get-Group '//ScriptPackage//ScriptGroup[name="Ritualism"]') 'Ritualism Commands' 'ritualism'
 Add-Script (Get-Group '//ScriptPackage//ScriptGroup[name="Malignosis"]') 'Malignosis Commands' 'malignosis'
-Add-Script (Get-Group '//ScriptPackage//ScriptGroup[name="Malignosis"]') 'Diabolist defences' 'defences'
+Add-Script (Get-Group '//ScriptPackage//ScriptGroup[name="Malignosis"]') 'Diabolist defences' 'diabolist_defences'
 Add-Script (Get-Group '//ScriptPackage//ScriptGroup[name="Nightfall"]') 'Nightfall Commands' 'nightfall'
 Add-Script $scriptRoot 'Initialize Demonic' 'bootstrap'
 # Runtime dependencies are ordered explicitly, even after a reordered export.
@@ -82,6 +85,7 @@ Add-Script $scriptRoot 'Initialize Demonic' 'bootstrap'
 [void]$scriptRoot.AppendChild($scriptRoot.SelectSingleNode('Script[name="Initialize Demonic"]'))
 
 Add-Alias (Get-Group '//AliasPackage/AliasGroup[name="Diabolist"]/AliasGroup[name="Ritualism"]') 'Defs' '^ddef$' 'dem.defences.run()'
+Add-Alias (Get-Group '//AliasPackage/AliasGroup[name="Summoner"]') 'Defs' '^ddef$' 'dem.defences.run()'
 
 $aliases = Get-Group '//AliasPackage/AliasGroup[name="System"]'
 $targetAliases = $aliases.SelectSingleNode('AliasGroup[name="Targeting"]')
@@ -102,6 +106,7 @@ Add-Alias $guiAliases 'Hide room GUI' '^demui hide$' 'dem.ui.hide()'
 Add-Alias $guiAliases 'Reset room GUI' '^demui reset$' 'dem.ui.resetLayout()'
 $huntAliases = Get-Group '//AliasPackage/AliasGroup[name="System"]/AliasGroup[name="Autobasher"]'
 Add-Alias $huntAliases 'Hunt mode' '^hunt$' 'dem.hunt.toggle()'
+Add-Alias $huntAliases 'Hunt explore' '^hunt explore$' 'dem.hunt.toggle("explore")'
 Add-Alias $huntAliases 'Hunt add' '^hunt add (.+)$' 'dem.hunt.add(matches[2])'
 Add-Alias $huntAliases 'Hunt remove' '^hunt remove (.+)$' 'dem.hunt.remove(matches[2])'
 Add-Alias $huntAliases 'Hunt list' '^hunt list$' 'dem.hunt.list()'
@@ -156,6 +161,37 @@ Add-Trigger $wraiths 'Wraith lost charges' ('^A (' + $types + ') wraith has lost
 Add-Trigger $wraiths 'Wraith vanished' ('^Your (' + $types + ') wraith freezes in mid-air for a moment, then disappears with a silent ''pop''\.$') 'dem.nightfall.onVanished(matches[2])'
 Add-Trigger $wraiths 'Wraith status header' '^\s*Type\s+Enabled\s+ID\s+Charges\s+Target\s+Location\s*$' 'dem.nightfall.beginSnapshot(line)'
 Add-Trigger $wraiths 'Wraith status row' ('^(?i:' + $types + ')\s+(?:Yes|No)\s+.*$') 'dem.nightfall.onSnapshotRow(line)'
+
+$summoner = Get-Group '//TriggerPackage/TriggerGroup[name="Summoner"]'
+$summonerDefences = Get-Group '//TriggerPackage/TriggerGroup[name="Summoner"]/TriggerGroup[name="Defences"]'
+$enslavery = $summoner.SelectSingleNode('TriggerGroup[name="Enslavery"]')
+$generalDefences = Get-Group '//TriggerPackage/TriggerGroup[name="System"]/TriggerGroup[name="Curing"]/TriggerGroup[name="Defences"]'
+$defenceEvents = @(
+    @($summonerDefences, 'Warmth', 'You start focusing on warming up your body.', 'dem.defences.setActive("warmth", true)'),
+    @($summonerDefences, 'Astralvision', 'Gritting your teeth, you focus your will and expand your aura throughout the surroundings about you, seeking out the aura of others.', 'dem.defences.setActive("astralvision", true)'),
+    @($summonerDefences, 'Distortion up', 'Clenching your fists, you focus your will on distorting the air around yourself, and a vibrant violet glow surrounds you.', 'dem.defences.setActive("distortion", true)'),
+    @($summonerDefences, 'Distortion down', 'You concentrate on returning the distorted air around you back to normal, and the vibrant violet glow slowly fades.', 'dem.defences.setActive("distortion", false)'),
+    @($generalDefences, 'Mindseye activated', 'Touching the mindseye tattoo, your senses are suddenly heightened.', 'dem.defences.setActive("mindseye", true)'),
+    @($generalDefences, 'Mindseye stripped', 'You relax your mindseye.', 'dem.defences.setActive("mindseye", false)'),
+    @($generalDefences, 'Tattoo shield', 'You touch the tattoo and a shimmering translucent shield forms around you.', 'dem.defences.onShield("tattoo")'),
+    @($generalDefences, 'Shield faded', 'Your action causes the shimmering translucent shield around you to fade away.', 'dem.defences.setActive("shield", false)'),
+    @($enslavery, 'Arctar shield', 'A thin protective layer envelops you softly.', 'dem.defences.onShield("arctar")'),
+    @($enslavery, 'Unleash ready', 'You are again able to unleash a demon.', 'dem.defences.onCooldownReady("unleash")'),
+    @($enslavery, 'Arctar ready', 'You are again able to unleash Arctar.', 'dem.defences.onCooldownReady("arctar")')
+)
+foreach ($entry in $defenceEvents) {
+    $pattern = '^' + [regex]::Escape($entry[2]).Replace('\ ', ' ') + '$'
+    Add-Trigger $entry[0] $entry[1] $pattern $entry[3]
+}
+# The handler accepts only complete messages, with whitespace normalized across wrapped lines.
+Add-Trigger $enslavery 'Enslavery output' '^.+$' 'dem.defences.onArctarLine(line)'
+
+# Mudlet may compile disabled scripts. The archive cannot write shared state
+# even if compiled at import or an old trigger or alias is enabled by hand.
+$legacyGuard = 'if not dem or dem.profession ~= "diabolist" then return end'
+foreach ($node in $doc.SelectNodes('/*/*/*[name="Diabolist"]//script[string-length(text()) > 0]')) {
+    $node.InnerText = $legacyGuard + "`n" + $node.InnerText
+}
 
 $settings = [Xml.XmlWriterSettings]::new()
 $settings.Indent = $true

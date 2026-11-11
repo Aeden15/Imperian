@@ -1,10 +1,21 @@
-dem.hunt = {enabled = false, reason = 'Disabled.'}
+dem.hunt = {enabled = false, mode = 'stationary', reason = 'Disabled.'}
 local hunt = dem.hunt
 local selected, manualReference, stateWaiting, waitingGeneration, watchedAction
+local lastSendWasShield = false
 local submittedByName, submittedById, submittedAny = {}, {}, false
+
+-- Expose the physical target retained by combat, including manual generic
+-- references that change while an older action is still recovering.
+function hunt.selectedId()
+  if selected and selected.reference == dem.target and selected.room == dem.room.num
+      and not dem.room.retired[selected.key] and dem.room.living(dem.room.items[selected.key]) then
+    return selected.key
+  end
+end
 
 function hunt.resetTerminalHistory()
   submittedByName, submittedById, submittedAny = {}, {}, false
+  lastSendWasShield = false
 end
 
 local function rememberName(action, name)
@@ -52,7 +63,7 @@ local function watchAction(action)
   local elapsed = math.max(0, dem.now() - (action.started or dem.now()))
   dem.defer('attack-watchdog', math.max(0, 10 - elapsed), function()
     if hunt.enabled and dem.balances.action == action then
-      hunt.stop('The last action has not completed a confirmed balance cycle.')
+      hunt.stop('The last action has not confirmed and recovered.')
     end
   end)
 end
@@ -65,6 +76,8 @@ end
 function hunt.stop(reason)
   local wasEnabled = hunt.enabled
   hunt.enabled = false
+  if dem.navigation then dem.navigation.reset(reason) end
+  hunt.mode = 'stationary'
   if dem.room.cancelRefresh then dem.room.cancelRefresh() end
   hunt.reason = reason or 'Disabled by user.'
   cancelState()
@@ -83,13 +96,18 @@ function hunt.onAttackRejected(reason)
   hunt.stop(reason or 'The submitted attack was refused.')
 end
 
-function hunt.toggle()
+function hunt.toggle(mode)
   if hunt.enabled then hunt.stop(); return false end
   if dem.balances.dead then
     hunt.stop('You are dead.')
     message('Hunt mode remains off while you are dead.')
     return false
   end
+  if mode == 'explore' then
+    local ok, reason = dem.navigation.start()
+    if not ok then hunt.reason = reason; message(reason); return false end
+  end
+  hunt.mode = mode == 'explore' and 'explore' or 'stationary'
   if dem.targeting.kind == 'player' then dem.targeting.clear('hunt') end
   manualReference = dem.targeting.kind == 'denizen' and dem.targeting.source == 'manual' and dem.target or nil
   selected, hunt.enabled = nil, true
@@ -102,6 +120,7 @@ function hunt.toggle()
 end
 
 function hunt.onRoomChanged()
+  if dem.defences.active.shield then dem.defences.setActive('shield', false) end
   selected, manualReference = nil, nil
   if dem.targeting.kind == 'denizen' then dem.targeting.clear('hunt') end
   if hunt.enabled then waitForState('Waiting for the new room roster.') end
@@ -109,6 +128,18 @@ end
 
 function hunt.onTargetChanged(oldReference, reference, kind, source)
   if source == 'hunt' or not hunt.enabled then return end
+  if dem.navigation.active then
+    if dem.navigation.pending then
+      hunt.stop('Manual targeting stopped exploration during movement.'); return
+    end
+    dem.navigation.reset('Manual targeting selected stationary hunting.')
+    hunt.mode = 'stationary'
+    -- Cancel an exploration-only blocking clear query, preserving its usable roster.
+    if dem.room.refresh and dem.room.refresh.reason == 'Confirming the room is clear.' then
+      dem.room.cancelRefresh()
+      dem.room.ready, dem.room.phase = true, 'ready'
+    end
+  end
   local preferredKey = selected and selected.room == dem.room.num and selected.key or nil
   selected = nil
   if not reference then hunt.stop('The shared target was cleared.'); return end
@@ -205,6 +236,7 @@ function hunt.step()
   if v and finite(v.mp) and finite(v.maxmp) and v.maxmp > 0 and v.mp / v.maxmp * 100 <= dem.settings.manaLimit then
     hunt.stop('Mana reached the configured limit.'); return
   end
+  if dem.navigation.blocked() then return end
   if shielding then
     if not knownVitals() or b.bal == nil or b.eq == nil or v.prone == nil or v.stunned == nil then
       waitForState('Waiting for character data to shield.'); return
@@ -215,13 +247,15 @@ function hunt.step()
     if not b.bal or not b.eq or v.prone or v.stunned then
       hunt.reason = 'Shielding: waiting for balance, equilibrium, standing and unstunned status.'; return
     end
-    local cost = dem.ritualism.manaCost({'inversion', 'hammer'})
-    if not cost or v.mp < cost then hunt.reason = 'Shielding: waiting for 18 mana.'; return end
-    local command, err = dem.ritualism.buildTrace({'inversion', 'hammer'}, 'me')
-    if not command then hunt.stop(err); return end
-    local action = {kind = 'shield', started = dem.now()}
+    if dem.defences.active.shield then hunt.reason = 'Shielding: protected while health recovers.'; return end
+    local cooldowns = dem.defences.cooldowns
+    local arctar = not cooldowns.arctar and not cooldowns.unleash and v.mp >= dem.defences.arctarMana
+    local command = arctar and 'unleash arctar at me' or 'touch shield'
+    local action = {kind = 'shield', source = arctar and 'arctar' or 'tattoo',
+      resource = arctar and 'prompt' or 'eq', started = dem.now()}
     if not b.beginAction(action) then return end
-    hunt.reason = 'Shielding: waiting for confirmed balance recovery.'
+    lastSendWasShield = true
+    hunt.reason = 'Shielding: waiting for confirmation and readiness.'
     watchAction(action)
     send(command)
     return
@@ -236,17 +270,19 @@ function hunt.step()
     validateManualSelection()
     if not hunt.enabled then return end
   end
-  if b.action then hunt.reason = 'Waiting for the confirmed attack balance cycle.'; watchAction(b.action); return end
+  if b.action then hunt.reason = 'Waiting for the current action to finish.'; watchAction(b.action); return end
   watchedAction = nil
   if not b.bal or not b.eq then hunt.reason = 'Waiting for balance and equilibrium.'; return end
   if v.prone or v.stunned then hunt.reason = 'Waiting until standing and unstunned.'; return end
-  local cost = dem.ritualism.manaCost({'fire', 'ice'})
-  if not cost or v.mp < cost then hunt.reason = 'Waiting for enough mana for the full attack.'; return end
   local candidate = choose()
   if not candidate then
-    if hunt.enabled then hunt.reason = 'No eligible allowed denizens in this room.' end
+    if hunt.enabled then
+      hunt.reason = 'No eligible allowed denizens in this room.'
+      dem.navigation.onClear()
+    end
     return
   end
+  dem.navigation.invalidateClear()
   if not hunt.enabled then return end
   selected = candidate
   if not candidate.manual and dem.target ~= candidate.reference then
@@ -254,13 +290,15 @@ function hunt.step()
   end
   -- Target-change callbacks are synchronous; recheck before committing the send.
   if not hunt.enabled or dem.target ~= candidate.reference or b.action then return end
+  dem.health.sync(candidate.key)
   -- The shared reference stays opaque; attack only the pinned room identity.
   -- Sending a generic word here would let the server switch matching denizens.
-  local command, err = dem.ritualism.buildTrace({'fire', 'ice'}, candidate.key)
-  if not command then hunt.stop(err or 'Cannot build the hunting attack.'); return end
-  local action = {kind = 'attack', reference = dem.target, key = candidate.key, room = room.num, generation = room.generation,
+  local target, err = dem.validReference(candidate.key)
+  if not target then hunt.stop(err or 'Cannot build the hunting attack.'); return end
+  local action = {kind = 'attack', resource = 'eq', reference = dem.target, key = candidate.key, room = room.num, generation = room.generation,
     item = candidate.item, retired = false, started = dem.now()}
   if not b.beginAction(action) then return end
+  lastSendWasShield = false
   local name = dem.norm(candidate.item.name)
   -- Text has no ID. Once another physical target could own the same name,
   -- defer that ambiguous text to GMCP rather than retiring its successor.
@@ -269,9 +307,9 @@ function hunt.step()
   submittedAny = true
   submittedById[room.generation .. ':' .. action.key] = action
   hunt.lastAction = action
-  hunt.reason = 'Waiting for the confirmed attack balance cycle.'
+  hunt.reason = 'Waiting for confirmed attack equilibrium recovery.'
   watchAction(action)
-  send(command)
+  send('invoke combustion ' .. target)
 end
 
 local function belongsToRoom(action)
@@ -323,6 +361,15 @@ function hunt.onKill(name)
   end
 end
 function hunt.onMissing()
+  -- The same response can refuse a self-shield or report an absent denizen.
+  -- Keep its shield provenance even after the first refusal releases the action.
+  if lastSendWasShield then
+    local pending = dem.balances.action
+    if pending and pending.kind == 'shield' and not pending.confirmed then
+      hunt.onAttackRejected('The emergency shield was refused.')
+    end
+    return
+  end
   local action = hunt.lastAction
   if action and action.ambiguousMissing and not action.retired then reconcile(action)
   else retire(action) end
@@ -393,8 +440,8 @@ function hunt.list()
 end
 function hunt.status(detailed)
   if detailed ~= true then
-    message('Hunt mode ' .. (hunt.enabled and 'on' or 'off') .. '; target: '
-      .. (dem.target or 'none') .. '; ' .. hunt.reason)
+    message('Hunt mode ' .. (hunt.enabled and 'on' or 'off') .. ' (' .. hunt.mode .. '); target: '
+      .. (dem.target or 'none') .. '; target health: ' .. dem.health.label(dem.health.requested) .. '; ' .. hunt.reason)
     return hunt.enabled
   end
   local v, b = dem.vitals, dem.balances
@@ -420,6 +467,10 @@ function hunt.status(detailed)
     .. '; last GMCP room: ' .. value(diagnostics.lastReceivedRoom)
     .. '; refresh error: ' .. (diagnostics.refreshError or 'none')
     .. '; target type: ' .. (dem.targeting.kind or 'none')
+    .. '; mode: ' .. hunt.mode .. '; target health: ' .. dem.health.label(dem.health.requested)
+    .. '; visited: ' .. dem.navigation.count .. '; destination: ' .. value(dem.navigation.destination)
+    .. '; pending direction: ' .. value(dem.navigation.pending and dem.navigation.pending.direction)
+    .. '; movement: ' .. dem.navigation.reason
     .. (hunt.enabled and '; state: ' or '; last stop: ') .. hunt.reason)
   return hunt.enabled
 end

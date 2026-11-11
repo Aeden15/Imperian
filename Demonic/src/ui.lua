@@ -86,11 +86,7 @@ local function nameLess(a, b)
 end
 
 local function selectedId()
-  if owner.targeting.kind ~= 'denizen' or not owner.target then return nil end
-  local action = owner.hunt.lastAction
-  local preferred = action and action.reference == owner.target and action.key or nil
-  local _, key = owner.room.identify(owner.target, preferred)
-  return owner.room.items[key] and key or nil
+  return owner.targeting.denizenId()
 end
 
 local function denizens(console)
@@ -134,6 +130,9 @@ local function denizens(console)
     end
     local text = (group.selected and '[T] ' or '') .. group.name
     if #group.ids > 1 then text = text .. ' x' .. #group.ids end
+    if group.selected then
+      text = text .. ' [ID ' .. selected .. ': ' .. owner.health.label(selected) .. ']'
+    end
     if group.protected > 0 then
       text = text .. (group.protected == #group.ids and ' [protected]' or ' [' .. group.protected .. ' protected]')
     end
@@ -306,4 +305,5 @@ owner.bind('dem.roomChanged', function(_, reason)
   else ui.requestRender() end
 end)
 owner.bind('dem.targetChanged', ui.requestRender)
+owner.bind('dem.healthChanged', ui.requestRender)
 owner.bind('dem.huntListChanged', ui.requestRender)

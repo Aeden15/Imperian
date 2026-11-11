@@ -1,0 +1,31 @@
+[arctar-summon]
+You close your eyes and reach out with your mind towards the Demon Plane, seeking out the presence
+of Arctar, the Defender. Your search is successful and a burden descends upon
+your soul as the possession takes hold.
+[arctar-banish]
+You close your eyes and focus all your willpower on the demon that is possessing you, driving away
+the presence of Arctar, the Defender.
+[arctar-shield]
+You focus upon your pact and a terrifying visage of Arctar, the Defender appears briefly in front of
+yourself, wreathed in flames.
+A thin protective layer envelops you softly.
+[arctar-ready]
+You are again able to unleash Arctar.
+[unleash-ready]
+You are again able to unleash a demon.
+[warmth]
+You start focusing on warming up your body.
+[astralvision]
+Gritting your teeth, you focus your will and expand your aura throughout the surroundings about you, seeking out the aura of others.
+[distortion-up]
+Clenching your fists, you focus your will on distorting the air around yourself, and a vibrant violet glow surrounds you.
+[distortion-down]
+You concentrate on returning the distorted air around you back to normal, and the vibrant violet glow slowly fades.
+[mindseye-up]
+Touching the mindseye tattoo, your senses are suddenly heightened.
+[mindseye-down]
+You relax your mindseye.
+[tattoo-shield]
+You touch the tattoo and a shimmering translucent shield forms around you.
+[shield-down]
+Your action causes the shimmering translucent shield around you to fade away.

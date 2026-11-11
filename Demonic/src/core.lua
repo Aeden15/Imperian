@@ -1,6 +1,7 @@
 -- A reload owns a fresh runtime, but retains only validated profile settings.
 if dem and type(dem.shutdown) == 'function' then dem.shutdown() end
 dem = {
+  profession = 'summoner',
   separator = '&&',
   runtime = {timers = {}, handlers = {}, gmcpFields = {}},
   settings = {areas = {}, hpLimit = 30, manaLimit = 10}

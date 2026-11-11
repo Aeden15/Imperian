@@ -2,7 +2,7 @@
 -- a room list can refresh the currently reported room, never establish one.
 -- Generations protect local callbacks and submitted target identities.
 dem.room = {items = {}, order = {}, retired = {}, ready = false, players = {}, playersReady = false,
-  phase = 'unconfirmed', generation = 0, contextId = 0}
+  phase = 'unconfirmed', generation = 0, contextId = 0, snapshotSerial = 0}
 local room = dem.room
 local lastReceivedRoom, refreshError
 local timerKeys = {'room-retry', 'room-fallback', 'room-timeout'}
@@ -33,7 +33,10 @@ local function changed(reason)
 end
 
 -- Also used after Hunt retires an ID without waiting for another GMCP packet.
-function room.notify(reason) changed(reason) end
+function room.notify(reason)
+  if dem.navigation then dem.navigation.invalidateClear() end
+  changed(reason)
+end
 
 function room.living(item)
   if type(item) ~= 'table' or not id(item.id) or type(item.name) ~= 'string'
@@ -98,6 +101,8 @@ local function invalidate()
   room.items, room.order, room.retired = {}, {}, {}
   room.players, room.playersReady = {}, false
   room.ready, room.phase = false, 'unconfirmed'
+  if dem.health then dem.health.reset() end
+  if dem.navigation then dem.navigation.invalidateClear() end
   refreshError = nil
 end
 
@@ -114,7 +119,7 @@ function room.subscribe()
   if room.subscribed then return end
   room.subscribed = true
   if type(sendGMCP) == 'function' then
-    sendGMCP('Core.Supports.Add ["Char 1","Char.Items 1","Room 1"]')
+    sendGMCP('Core.Supports.Add ["Char 1","Char.Items 1","Room 1","IRE.Target 1"]')
   end
 end
 
@@ -199,11 +204,13 @@ function room.onInfo(payload)
     invalidate()
     if transition then room.contextId = room.contextId + 1 end
     room.num, room.area, room.phase = number, area(payload.area), 'waiting'
+    if dem.navigation then dem.navigation.onInfo() end
     if dem.hunt then dem.hunt.onRoomChanged() end
     local pendingTarget = dem.targeting and dem.targeting.kind == 'pending'
     if hunting() or pendingTarget then room.request('Room identity confirmed') end
   elseif payload.area ~= nil then
     room.area = area(payload.area)
+    if dem.navigation then dem.navigation.onInfo() end
   end
   if payload.name ~= nil then room.name = area(payload.name) end
   room.disconnected = false
@@ -273,6 +280,8 @@ function room.onList(payload)
     end
   end
   room.processingList = false
+  room.snapshotSerial = room.snapshotSerial + 1
+  if dem.navigation then dem.navigation.onRoster() end
   changed()
 end
 
@@ -287,6 +296,7 @@ local function delta(payload, liveAdd)
   if not room.items[key] then room.order[#room.order + 1] = key end
   room.items[key] = item
   if liveAdd then room.retired[key] = nil end
+  if dem.navigation then dem.navigation.invalidateClear() end
   if dem.hunt then dem.hunt.onObserved(key, item) end
   changed()
 end
@@ -301,6 +311,7 @@ function room.onRemove(payload)
   local key = id(type(value) == 'table' and value.id or value)
   if not key then return end
   room.items[key], room.retired[key] = nil, true
+  if dem.navigation then dem.navigation.invalidateClear() end
   for i = #room.order, 1, -1 do
     if room.order[i] == key then table.remove(room.order, i) end
   end

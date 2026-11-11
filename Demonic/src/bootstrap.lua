@@ -3,14 +3,13 @@ function dem.onPrompt(text)
   dem.cancel('hunt-step')
   dem.runtime.promptSerial = (dem.runtime.promptSerial or 0) + 1
   if text then dem.balances.parsePrompt(text) end
-  dem.nightfall.finishSnapshot()
+  dem.defences.endPrompt()
   dem.balances.onPrompt()
   dem.step()
   dem.balances.endPrompt()
 end
 
 function dem.resetConnection(event)
-  dem.nightfall.resetWraiths()
   dem.defences.reset('Connection changed; type ddef to run the defence sequence again.')
   dem.hunt.stop('Connection changed; type hunt to enable again.')
   dem.hunt.lastAction = nil
@@ -21,7 +20,6 @@ function dem.resetConnection(event)
 end
 
 function dem.onDeath()
-  dem.nightfall.resetWraiths()
   dem.defences.reset('You are dead.')
   dem.hunt.stop('You are dead.')
   dem.hunt.lastAction = nil
@@ -56,6 +54,8 @@ gmcpHandler('Char.Items.List', dem.room.onList)
 gmcpHandler('Char.Items.Add', dem.room.onAdd)
 gmcpHandler('Char.Items.Remove', dem.room.onRemove)
 gmcpHandler('Char.Items.Update', dem.room.onUpdate)
+gmcpHandler('IRE.Target.Info', dem.health.onInfo)
+gmcpHandler('Room.WrongDir', dem.navigation.onWrongDir)
 dem.bind('sysDisconnectionEvent', dem.resetConnection)
 dem.bind('sysConnectionEvent', dem.resetConnection)
 dem.bind('sysProtocolEnabled', function(_, protocol)

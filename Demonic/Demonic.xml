@@ -2,7 +2,7 @@
 <!DOCTYPE MudletPackage []>
 <MudletPackage version="1.001">
 	<TriggerPackage>
-		<TriggerGroup isActive="yes" isFolder="yes" isTempTrigger="no" isMultiline="no" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
+		<TriggerGroup isActive="no" isFolder="yes" isTempTrigger="no" isMultiline="no" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
 			<name>Diabolist</name>
 			<script />
 			<triggerType>0</triggerType>
@@ -34,7 +34,8 @@
 				<regexCodePropertyList />
 				<Trigger isActive="yes" isFolder="no" isTempTrigger="no" isMultiline="no" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
 					<name>Vitality activated</name>
-					<script>dem.defences.setActive("vitality", true)</script>
+					<script>if not dem or dem.profession ~= "diabolist" then return end
+dem.defences.setActive("vitality", true)</script>
 					<triggerType>0</triggerType>
 					<conditonLineDelta>0</conditonLineDelta>
 					<mStayOpen>0</mStayOpen>
@@ -54,7 +55,8 @@
 				</Trigger>
 				<Trigger isActive="yes" isFolder="no" isTempTrigger="no" isMultiline="no" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
 					<name>Vitality consumed</name>
-					<script>dem.defences.onVitalityConsumed()</script>
+					<script>if not dem or dem.profession ~= "diabolist" then return end
+dem.defences.onVitalityConsumed()</script>
 					<triggerType>0</triggerType>
 					<conditonLineDelta>0</conditonLineDelta>
 					<mStayOpen>0</mStayOpen>
@@ -74,7 +76,8 @@
 				</Trigger>
 				<Trigger isActive="yes" isFolder="no" isTempTrigger="no" isMultiline="no" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
 					<name>Vitality cooldown</name>
-					<script>dem.defences.onVitalityCooldown()</script>
+					<script>if not dem or dem.profession ~= "diabolist" then return end
+dem.defences.onVitalityCooldown()</script>
 					<triggerType>0</triggerType>
 					<conditonLineDelta>0</conditonLineDelta>
 					<mStayOpen>0</mStayOpen>
@@ -94,7 +97,8 @@
 				</Trigger>
 				<Trigger isActive="yes" isFolder="no" isTempTrigger="no" isMultiline="no" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
 					<name>Vitality ready</name>
-					<script>dem.defences.onVitalityReady()</script>
+					<script>if not dem or dem.profession ~= "diabolist" then return end
+dem.defences.onVitalityReady()</script>
 					<triggerType>0</triggerType>
 					<conditonLineDelta>0</conditonLineDelta>
 					<mStayOpen>0</mStayOpen>
@@ -145,7 +149,8 @@
 					<regexCodePropertyList />
 					<Trigger isActive="yes" isFolder="no" isTempTrigger="no" isMultiline="no" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
 						<name>Demon regeneration</name>
-						<script>dem.defences.setActive("regeneration", true)</script>
+						<script>if not dem or dem.profession ~= "diabolist" then return end
+dem.defences.setActive("regeneration", true)</script>
 						<triggerType>0</triggerType>
 						<conditonLineDelta>0</conditonLineDelta>
 						<mStayOpen>0</mStayOpen>
@@ -165,7 +170,8 @@
 					</Trigger>
 					<Trigger isActive="yes" isFolder="no" isTempTrigger="no" isMultiline="no" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
 						<name>Demon armor</name>
-						<script>dem.defences.setActive("armor", true)</script>
+						<script>if not dem or dem.profession ~= "diabolist" then return end
+dem.defences.setActive("armor", true)</script>
 						<triggerType>0</triggerType>
 						<conditonLineDelta>0</conditonLineDelta>
 						<mStayOpen>0</mStayOpen>
@@ -185,7 +191,8 @@
 					</Trigger>
 					<Trigger isActive="yes" isFolder="no" isTempTrigger="no" isMultiline="no" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
 						<name>Missing ouroboros</name>
-						<script>dem.defences.setActive("ouroboros", false)</script>
+						<script>if not dem or dem.profession ~= "diabolist" then return end
+dem.defences.setActive("ouroboros", false)</script>
 						<triggerType>0</triggerType>
 						<conditonLineDelta>0</conditonLineDelta>
 						<mStayOpen>0</mStayOpen>
@@ -205,7 +212,8 @@
 					</Trigger>
 					<Trigger isActive="yes" isFolder="no" isTempTrigger="no" isMultiline="no" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
 						<name>Summoned ouroboros</name>
-						<script>dem.defences.setActive("ouroboros", true)</script>
+						<script>if not dem or dem.profession ~= "diabolist" then return end
+dem.defences.setActive("ouroboros", true)</script>
 						<triggerType>0</triggerType>
 						<conditonLineDelta>0</conditonLineDelta>
 						<mStayOpen>0</mStayOpen>
@@ -225,7 +233,8 @@
 					</Trigger>
 					<Trigger isActive="yes" isFolder="no" isTempTrigger="no" isMultiline="no" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
 						<name>Soulmask</name>
-						<script>dem.defences.setActive("soulmask", true)</script>
+						<script>if not dem or dem.profession ~= "diabolist" then return end
+dem.defences.setActive("soulmask", true)</script>
 						<triggerType>0</triggerType>
 						<conditonLineDelta>0</conditonLineDelta>
 						<mStayOpen>0</mStayOpen>
@@ -245,7 +254,8 @@
 					</Trigger>
 					<Trigger isActive="yes" isFolder="no" isTempTrigger="no" isMultiline="no" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
 						<name>Syphon ceased</name>
-						<script>dem.defences.setActive("syphon", false)</script>
+						<script>if not dem or dem.profession ~= "diabolist" then return end
+dem.defences.setActive("syphon", false)</script>
 						<triggerType>0</triggerType>
 						<conditonLineDelta>0</conditonLineDelta>
 						<mStayOpen>0</mStayOpen>
@@ -265,7 +275,8 @@
 					</Trigger>
 					<Trigger isActive="yes" isFolder="no" isTempTrigger="no" isMultiline="no" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
 						<name>Syphoning on</name>
-						<script>dem.defences.setActive("syphon", true)</script>
+						<script>if not dem or dem.profession ~= "diabolist" then return end
+dem.defences.setActive("syphon", true)</script>
 						<triggerType>0</triggerType>
 						<conditonLineDelta>0</conditonLineDelta>
 						<mStayOpen>0</mStayOpen>
@@ -317,7 +328,8 @@
 					<regexCodePropertyList />
 					<Trigger isActive="yes" isFolder="no" isTempTrigger="no" isMultiline="no" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
 						<name>Wraith materialised</name>
-						<script>dem.nightfall.onMaterialised(matches[2])</script>
+						<script>if not dem or dem.profession ~= "diabolist" then return end
+dem.nightfall.onMaterialised(matches[2])</script>
 						<triggerType>0</triggerType>
 						<conditonLineDelta>0</conditonLineDelta>
 						<mStayOpen>0</mStayOpen>
@@ -337,7 +349,8 @@
 					</Trigger>
 					<Trigger isActive="yes" isFolder="no" isTempTrigger="no" isMultiline="no" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
 						<name>Wraith charges</name>
-						<script>dem.nightfall.onCharges(matches[2], matches[3])</script>
+						<script>if not dem or dem.profession ~= "diabolist" then return end
+dem.nightfall.onCharges(matches[2], matches[3])</script>
 						<triggerType>0</triggerType>
 						<conditonLineDelta>0</conditonLineDelta>
 						<mStayOpen>0</mStayOpen>
@@ -357,7 +370,8 @@
 					</Trigger>
 					<Trigger isActive="yes" isFolder="no" isTempTrigger="no" isMultiline="no" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
 						<name>Wraith lost charges</name>
-						<script>dem.nightfall.onLostCharges(matches[2])</script>
+						<script>if not dem or dem.profession ~= "diabolist" then return end
+dem.nightfall.onLostCharges(matches[2])</script>
 						<triggerType>0</triggerType>
 						<conditonLineDelta>0</conditonLineDelta>
 						<mStayOpen>0</mStayOpen>
@@ -377,7 +391,8 @@
 					</Trigger>
 					<Trigger isActive="yes" isFolder="no" isTempTrigger="no" isMultiline="no" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
 						<name>Wraith vanished</name>
-						<script>dem.nightfall.onVanished(matches[2])</script>
+						<script>if not dem or dem.profession ~= "diabolist" then return end
+dem.nightfall.onVanished(matches[2])</script>
 						<triggerType>0</triggerType>
 						<conditonLineDelta>0</conditonLineDelta>
 						<mStayOpen>0</mStayOpen>
@@ -397,7 +412,8 @@
 					</Trigger>
 					<Trigger isActive="yes" isFolder="no" isTempTrigger="no" isMultiline="no" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
 						<name>Wraith status header</name>
-						<script>dem.nightfall.beginSnapshot(line)</script>
+						<script>if not dem or dem.profession ~= "diabolist" then return end
+dem.nightfall.beginSnapshot(line)</script>
 						<triggerType>0</triggerType>
 						<conditonLineDelta>0</conditonLineDelta>
 						<mStayOpen>0</mStayOpen>
@@ -417,7 +433,8 @@
 					</Trigger>
 					<Trigger isActive="yes" isFolder="no" isTempTrigger="no" isMultiline="no" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
 						<name>Wraith status row</name>
-						<script>dem.nightfall.onSnapshotRow(line)</script>
+						<script>if not dem or dem.profession ~= "diabolist" then return end
+dem.nightfall.onSnapshotRow(line)</script>
 						<triggerType>0</triggerType>
 						<conditonLineDelta>0</conditonLineDelta>
 						<mStayOpen>0</mStayOpen>
@@ -438,7 +455,8 @@
 				</TriggerGroup>
 				<Trigger isActive="yes" isFolder="no" isTempTrigger="no" isMultiline="no" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
 					<name>Nightfall defence</name>
-					<script>dem.defences.setActive("nightfall", true)</script>
+					<script>if not dem or dem.profession ~= "diabolist" then return end
+dem.defences.setActive("nightfall", true)</script>
 					<triggerType>0</triggerType>
 					<conditonLineDelta>0</conditonLineDelta>
 					<mStayOpen>0</mStayOpen>
@@ -458,7 +476,8 @@
 				</Trigger>
 				<Trigger isActive="yes" isFolder="no" isTempTrigger="no" isMultiline="no" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
 					<name>Nightfall cease</name>
-					<script>dem.defences.setActive("nightfall", false)</script>
+					<script>if not dem or dem.profession ~= "diabolist" then return end
+dem.defences.setActive("nightfall", false)</script>
 					<triggerType>0</triggerType>
 					<conditonLineDelta>0</conditonLineDelta>
 					<mStayOpen>0</mStayOpen>
@@ -664,6 +683,102 @@
 				<colorTriggerBgColor>#000000</colorTriggerBgColor>
 				<regexCodeList />
 				<regexCodePropertyList />
+				<TriggerGroup isActive="yes" isFolder="yes" isTempTrigger="no" isMultiline="no" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
+					<name>Defences</name>
+					<script />
+					<triggerType>0</triggerType>
+					<conditonLineDelta>0</conditonLineDelta>
+					<mStayOpen>0</mStayOpen>
+					<mCommand />
+					<packageName />
+					<mFgColor>#ff0000</mFgColor>
+					<mBgColor>#ffff00</mBgColor>
+					<mSoundFile />
+					<colorTriggerFgColor>#000000</colorTriggerFgColor>
+					<colorTriggerBgColor>#000000</colorTriggerBgColor>
+					<regexCodeList />
+					<regexCodePropertyList />
+					<Trigger isActive="yes" isFolder="no" isTempTrigger="no" isMultiline="no" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
+						<name>Mindseye activated</name>
+						<script>dem.defences.setActive("mindseye", true)</script>
+						<triggerType>0</triggerType>
+						<conditonLineDelta>0</conditonLineDelta>
+						<mStayOpen>0</mStayOpen>
+						<mCommand />
+						<packageName />
+						<mFgColor>#ff0000</mFgColor>
+						<mBgColor>#ffff00</mBgColor>
+						<mSoundFile />
+						<colorTriggerFgColor>#000000</colorTriggerFgColor>
+						<colorTriggerBgColor>#000000</colorTriggerBgColor>
+						<regexCodeList>
+							<string>^Touching the mindseye tattoo, your senses are suddenly heightened\.$</string>
+						</regexCodeList>
+						<regexCodePropertyList>
+							<integer>1</integer>
+						</regexCodePropertyList>
+					</Trigger>
+					<Trigger isActive="yes" isFolder="no" isTempTrigger="no" isMultiline="no" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
+						<name>Mindseye stripped</name>
+						<script>dem.defences.setActive("mindseye", false)</script>
+						<triggerType>0</triggerType>
+						<conditonLineDelta>0</conditonLineDelta>
+						<mStayOpen>0</mStayOpen>
+						<mCommand />
+						<packageName />
+						<mFgColor>#ff0000</mFgColor>
+						<mBgColor>#ffff00</mBgColor>
+						<mSoundFile />
+						<colorTriggerFgColor>#000000</colorTriggerFgColor>
+						<colorTriggerBgColor>#000000</colorTriggerBgColor>
+						<regexCodeList>
+							<string>^You relax your mindseye\.$</string>
+						</regexCodeList>
+						<regexCodePropertyList>
+							<integer>1</integer>
+						</regexCodePropertyList>
+					</Trigger>
+					<Trigger isActive="yes" isFolder="no" isTempTrigger="no" isMultiline="no" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
+						<name>Tattoo shield</name>
+						<script>dem.defences.onShield("tattoo")</script>
+						<triggerType>0</triggerType>
+						<conditonLineDelta>0</conditonLineDelta>
+						<mStayOpen>0</mStayOpen>
+						<mCommand />
+						<packageName />
+						<mFgColor>#ff0000</mFgColor>
+						<mBgColor>#ffff00</mBgColor>
+						<mSoundFile />
+						<colorTriggerFgColor>#000000</colorTriggerFgColor>
+						<colorTriggerBgColor>#000000</colorTriggerBgColor>
+						<regexCodeList>
+							<string>^You touch the tattoo and a shimmering translucent shield forms around you\.$</string>
+						</regexCodeList>
+						<regexCodePropertyList>
+							<integer>1</integer>
+						</regexCodePropertyList>
+					</Trigger>
+					<Trigger isActive="yes" isFolder="no" isTempTrigger="no" isMultiline="no" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
+						<name>Shield faded</name>
+						<script>dem.defences.setActive("shield", false)</script>
+						<triggerType>0</triggerType>
+						<conditonLineDelta>0</conditonLineDelta>
+						<mStayOpen>0</mStayOpen>
+						<mCommand />
+						<packageName />
+						<mFgColor>#ff0000</mFgColor>
+						<mBgColor>#ffff00</mBgColor>
+						<mSoundFile />
+						<colorTriggerFgColor>#000000</colorTriggerFgColor>
+						<colorTriggerBgColor>#000000</colorTriggerBgColor>
+						<regexCodeList>
+							<string>^Your action causes the shimmering translucent shield around you to fade away\.$</string>
+						</regexCodeList>
+						<regexCodePropertyList>
+							<integer>1</integer>
+						</regexCodePropertyList>
+					</Trigger>
+				</TriggerGroup>
 			</TriggerGroup>
 			<TriggerGroup isActive="yes" isFolder="yes" isTempTrigger="no" isMultiline="no" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
 				<name>Autobasher</name>
@@ -742,10 +857,250 @@
 				</Trigger>
 			</TriggerGroup>
 		</TriggerGroup>
+		<TriggerGroup isActive="yes" isFolder="yes" isTempTrigger="no" isMultiline="no" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
+			<name>Summoner</name>
+			<script />
+			<triggerType>0</triggerType>
+			<conditonLineDelta>0</conditonLineDelta>
+			<mStayOpen>0</mStayOpen>
+			<mCommand />
+			<packageName />
+			<mFgColor>#ff0000</mFgColor>
+			<mBgColor>#ffff00</mBgColor>
+			<mSoundFile />
+			<colorTriggerFgColor>#000000</colorTriggerFgColor>
+			<colorTriggerBgColor>#000000</colorTriggerBgColor>
+			<regexCodeList />
+			<regexCodePropertyList />
+			<TriggerGroup isActive="yes" isFolder="yes" isTempTrigger="no" isMultiline="no" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
+				<name>Noctu</name>
+				<script />
+				<triggerType>0</triggerType>
+				<conditonLineDelta>0</conditonLineDelta>
+				<mStayOpen>0</mStayOpen>
+				<mCommand />
+				<packageName />
+				<mFgColor>#ff0000</mFgColor>
+				<mBgColor>#ffff00</mBgColor>
+				<mSoundFile />
+				<colorTriggerFgColor>#000000</colorTriggerFgColor>
+				<colorTriggerBgColor>#000000</colorTriggerBgColor>
+				<regexCodeList />
+				<regexCodePropertyList />
+			</TriggerGroup>
+			<TriggerGroup isActive="yes" isFolder="yes" isTempTrigger="no" isMultiline="no" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
+				<name>Enslavery</name>
+				<script />
+				<triggerType>0</triggerType>
+				<conditonLineDelta>0</conditonLineDelta>
+				<mStayOpen>0</mStayOpen>
+				<mCommand />
+				<packageName />
+				<mFgColor>#ff0000</mFgColor>
+				<mBgColor>#ffff00</mBgColor>
+				<mSoundFile />
+				<colorTriggerFgColor>#000000</colorTriggerFgColor>
+				<colorTriggerBgColor>#000000</colorTriggerBgColor>
+				<regexCodeList />
+				<regexCodePropertyList />
+				<Trigger isActive="yes" isFolder="no" isTempTrigger="no" isMultiline="no" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
+					<name>Arctar shield</name>
+					<script>dem.defences.onShield("arctar")</script>
+					<triggerType>0</triggerType>
+					<conditonLineDelta>0</conditonLineDelta>
+					<mStayOpen>0</mStayOpen>
+					<mCommand />
+					<packageName />
+					<mFgColor>#ff0000</mFgColor>
+					<mBgColor>#ffff00</mBgColor>
+					<mSoundFile />
+					<colorTriggerFgColor>#000000</colorTriggerFgColor>
+					<colorTriggerBgColor>#000000</colorTriggerBgColor>
+					<regexCodeList>
+						<string>^A thin protective layer envelops you softly\.$</string>
+					</regexCodeList>
+					<regexCodePropertyList>
+						<integer>1</integer>
+					</regexCodePropertyList>
+				</Trigger>
+				<Trigger isActive="yes" isFolder="no" isTempTrigger="no" isMultiline="no" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
+					<name>Unleash ready</name>
+					<script>dem.defences.onCooldownReady("unleash")</script>
+					<triggerType>0</triggerType>
+					<conditonLineDelta>0</conditonLineDelta>
+					<mStayOpen>0</mStayOpen>
+					<mCommand />
+					<packageName />
+					<mFgColor>#ff0000</mFgColor>
+					<mBgColor>#ffff00</mBgColor>
+					<mSoundFile />
+					<colorTriggerFgColor>#000000</colorTriggerFgColor>
+					<colorTriggerBgColor>#000000</colorTriggerBgColor>
+					<regexCodeList>
+						<string>^You are again able to unleash a demon\.$</string>
+					</regexCodeList>
+					<regexCodePropertyList>
+						<integer>1</integer>
+					</regexCodePropertyList>
+				</Trigger>
+				<Trigger isActive="yes" isFolder="no" isTempTrigger="no" isMultiline="no" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
+					<name>Arctar ready</name>
+					<script>dem.defences.onCooldownReady("arctar")</script>
+					<triggerType>0</triggerType>
+					<conditonLineDelta>0</conditonLineDelta>
+					<mStayOpen>0</mStayOpen>
+					<mCommand />
+					<packageName />
+					<mFgColor>#ff0000</mFgColor>
+					<mBgColor>#ffff00</mBgColor>
+					<mSoundFile />
+					<colorTriggerFgColor>#000000</colorTriggerFgColor>
+					<colorTriggerBgColor>#000000</colorTriggerBgColor>
+					<regexCodeList>
+						<string>^You are again able to unleash Arctar\.$</string>
+					</regexCodeList>
+					<regexCodePropertyList>
+						<integer>1</integer>
+					</regexCodePropertyList>
+				</Trigger>
+				<Trigger isActive="yes" isFolder="no" isTempTrigger="no" isMultiline="no" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
+					<name>Enslavery output</name>
+					<script>dem.defences.onArctarLine(line)</script>
+					<triggerType>0</triggerType>
+					<conditonLineDelta>0</conditonLineDelta>
+					<mStayOpen>0</mStayOpen>
+					<mCommand />
+					<packageName />
+					<mFgColor>#ff0000</mFgColor>
+					<mBgColor>#ffff00</mBgColor>
+					<mSoundFile />
+					<colorTriggerFgColor>#000000</colorTriggerFgColor>
+					<colorTriggerBgColor>#000000</colorTriggerBgColor>
+					<regexCodeList>
+						<string>^.+$</string>
+					</regexCodeList>
+					<regexCodePropertyList>
+						<integer>1</integer>
+					</regexCodePropertyList>
+				</Trigger>
+			</TriggerGroup>
+			<TriggerGroup isActive="yes" isFolder="yes" isTempTrigger="no" isMultiline="no" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
+				<name>Tarot</name>
+				<script />
+				<triggerType>0</triggerType>
+				<conditonLineDelta>0</conditonLineDelta>
+				<mStayOpen>0</mStayOpen>
+				<mCommand />
+				<packageName />
+				<mFgColor>#ff0000</mFgColor>
+				<mBgColor>#ffff00</mBgColor>
+				<mSoundFile />
+				<colorTriggerFgColor>#000000</colorTriggerFgColor>
+				<colorTriggerBgColor>#000000</colorTriggerBgColor>
+				<regexCodeList />
+				<regexCodePropertyList />
+			</TriggerGroup>
+			<TriggerGroup isActive="yes" isFolder="yes" isTempTrigger="no" isMultiline="no" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
+				<name>Defences</name>
+				<script />
+				<triggerType>0</triggerType>
+				<conditonLineDelta>0</conditonLineDelta>
+				<mStayOpen>0</mStayOpen>
+				<mCommand />
+				<packageName />
+				<mFgColor>#ff0000</mFgColor>
+				<mBgColor>#ffff00</mBgColor>
+				<mSoundFile />
+				<colorTriggerFgColor>#000000</colorTriggerFgColor>
+				<colorTriggerBgColor>#000000</colorTriggerBgColor>
+				<regexCodeList />
+				<regexCodePropertyList />
+				<Trigger isActive="yes" isFolder="no" isTempTrigger="no" isMultiline="no" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
+					<name>Warmth</name>
+					<script>dem.defences.setActive("warmth", true)</script>
+					<triggerType>0</triggerType>
+					<conditonLineDelta>0</conditonLineDelta>
+					<mStayOpen>0</mStayOpen>
+					<mCommand />
+					<packageName />
+					<mFgColor>#ff0000</mFgColor>
+					<mBgColor>#ffff00</mBgColor>
+					<mSoundFile />
+					<colorTriggerFgColor>#000000</colorTriggerFgColor>
+					<colorTriggerBgColor>#000000</colorTriggerBgColor>
+					<regexCodeList>
+						<string>^You start focusing on warming up your body\.$</string>
+					</regexCodeList>
+					<regexCodePropertyList>
+						<integer>1</integer>
+					</regexCodePropertyList>
+				</Trigger>
+				<Trigger isActive="yes" isFolder="no" isTempTrigger="no" isMultiline="no" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
+					<name>Astralvision</name>
+					<script>dem.defences.setActive("astralvision", true)</script>
+					<triggerType>0</triggerType>
+					<conditonLineDelta>0</conditonLineDelta>
+					<mStayOpen>0</mStayOpen>
+					<mCommand />
+					<packageName />
+					<mFgColor>#ff0000</mFgColor>
+					<mBgColor>#ffff00</mBgColor>
+					<mSoundFile />
+					<colorTriggerFgColor>#000000</colorTriggerFgColor>
+					<colorTriggerBgColor>#000000</colorTriggerBgColor>
+					<regexCodeList>
+						<string>^Gritting your teeth, you focus your will and expand your aura throughout the surroundings about you, seeking out the aura of others\.$</string>
+					</regexCodeList>
+					<regexCodePropertyList>
+						<integer>1</integer>
+					</regexCodePropertyList>
+				</Trigger>
+				<Trigger isActive="yes" isFolder="no" isTempTrigger="no" isMultiline="no" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
+					<name>Distortion up</name>
+					<script>dem.defences.setActive("distortion", true)</script>
+					<triggerType>0</triggerType>
+					<conditonLineDelta>0</conditonLineDelta>
+					<mStayOpen>0</mStayOpen>
+					<mCommand />
+					<packageName />
+					<mFgColor>#ff0000</mFgColor>
+					<mBgColor>#ffff00</mBgColor>
+					<mSoundFile />
+					<colorTriggerFgColor>#000000</colorTriggerFgColor>
+					<colorTriggerBgColor>#000000</colorTriggerBgColor>
+					<regexCodeList>
+						<string>^Clenching your fists, you focus your will on distorting the air around yourself, and a vibrant violet glow surrounds you\.$</string>
+					</regexCodeList>
+					<regexCodePropertyList>
+						<integer>1</integer>
+					</regexCodePropertyList>
+				</Trigger>
+				<Trigger isActive="yes" isFolder="no" isTempTrigger="no" isMultiline="no" isPerlSlashGOption="no" isColorizerTrigger="no" isFilterTrigger="no" isSoundTrigger="no" isColorTrigger="no" isColorTriggerFg="no" isColorTriggerBg="no">
+					<name>Distortion down</name>
+					<script>dem.defences.setActive("distortion", false)</script>
+					<triggerType>0</triggerType>
+					<conditonLineDelta>0</conditonLineDelta>
+					<mStayOpen>0</mStayOpen>
+					<mCommand />
+					<packageName />
+					<mFgColor>#ff0000</mFgColor>
+					<mBgColor>#ffff00</mBgColor>
+					<mSoundFile />
+					<colorTriggerFgColor>#000000</colorTriggerFgColor>
+					<colorTriggerBgColor>#000000</colorTriggerBgColor>
+					<regexCodeList>
+						<string>^You concentrate on returning the distorted air around you back to normal, and the vibrant violet glow slowly fades\.$</string>
+					</regexCodeList>
+					<regexCodePropertyList>
+						<integer>1</integer>
+					</regexCodePropertyList>
+				</Trigger>
+			</TriggerGroup>
+		</TriggerGroup>
 	</TriggerPackage>
 	<TimerPackage />
 	<AliasPackage>
-		<AliasGroup isActive="yes" isFolder="yes">
+		<AliasGroup isActive="no" isFolder="yes">
 			<name>Diabolist</name>
 			<script />
 			<command />
@@ -759,7 +1114,8 @@
 				<regex />
 				<Alias isActive="yes" isFolder="no">
 					<name>Defs</name>
-					<script>dem.defences.run()</script>
+					<script>if not dem or dem.profession ~= "diabolist" then return end
+dem.defences.run()</script>
 					<command></command>
 					<packageName></packageName>
 					<regex>^ddef$</regex>
@@ -798,6 +1154,13 @@
 					<command></command>
 					<packageName></packageName>
 					<regex>^hunt$</regex>
+				</Alias>
+				<Alias isActive="yes" isFolder="no">
+					<name>Hunt explore</name>
+					<script>dem.hunt.toggle("explore")</script>
+					<command></command>
+					<packageName></packageName>
+					<regex>^hunt explore$</regex>
 				</Alias>
 				<Alias isActive="yes" isFolder="no">
 					<name>Hunt add</name>
@@ -878,6 +1241,41 @@
 				</Alias>
 			</AliasGroup>
 		</AliasGroup>
+		<AliasGroup isActive="yes" isFolder="yes">
+			<name>Summoner</name>
+			<script />
+			<command />
+			<packageName />
+			<regex />
+			<AliasGroup isActive="yes" isFolder="yes">
+				<name>Noctu</name>
+				<script />
+				<command />
+				<packageName />
+				<regex />
+			</AliasGroup>
+			<AliasGroup isActive="yes" isFolder="yes">
+				<name>Enslavery</name>
+				<script />
+				<command />
+				<packageName />
+				<regex />
+			</AliasGroup>
+			<AliasGroup isActive="yes" isFolder="yes">
+				<name>Tarot</name>
+				<script />
+				<command />
+				<packageName />
+				<regex />
+			</AliasGroup>
+			<Alias isActive="yes" isFolder="no">
+				<name>Defs</name>
+				<script>dem.defences.run()</script>
+				<command></command>
+				<packageName></packageName>
+				<regex>^ddef$</regex>
+			</Alias>
+		</AliasGroup>
 	</AliasPackage>
 	<ActionPackage />
 	<ScriptPackage>
@@ -892,6 +1290,7 @@
 				<script>-- A reload owns a fresh runtime, but retains only validated profile settings.
 if dem and type(dem.shutdown) == 'function' then dem.shutdown() end
 dem = {
+  profession = 'summoner',
   separator = '&amp;&amp;',
   runtime = {timers = {}, handlers = {}, gmcpFields = {}},
   settings = {areas = {}, hpLimit = 30, manaLimit = 10}
@@ -1060,6 +1459,14 @@ function targeting.setDenizen(ref, source) return select(ref, 'denizen', source)
 function targeting.clear(source) return change(nil, nil, source) end
 function targeting.get() return dem.target end
 
+function targeting.denizenId()
+  if targeting.kind ~= 'denizen' or not dem.target then return nil end
+  local preferred = dem.hunt and dem.hunt.selectedId()
+  if preferred then return preferred end
+  local item, key = dem.room.identify(dem.target)
+  if item then return key end
+end
+
 function targeting.set(ref, source)
   local valid, err = dem.validReference(ref)
   if not valid then dem.message(err); return false, err end
@@ -1130,7 +1537,7 @@ local function readiness(kind, ready, explicitRecovery)
       balances.action.lost = true
     elseif ready == true and (explicitRecovery or balances.action.lost) then
       balances.action.recovered = true
-      if balances.action.kind ~= 'defence' or balances.action.confirmed or balances.action.refused then release() end
+      if not balances.action.requiresConfirmation or balances.action.confirmed or balances.action.refused then release() end
     end
   end
 end
@@ -1205,6 +1612,7 @@ end
 function balances.beginAction(action)
   if type(action) ~= 'table' or balances.action then return false end
   action.resource = action.resource or 'bal'
+  if action.kind == 'defence' or action.kind == 'shield' then action.requiresConfirmation = true end
   action.lost = balances[action.resource] == false
   action.readiness = {bal = readinessSerial.bal, eq = readinessSerial.eq}
   action.sentPrompt = dem.runtime.promptSerial or 0
@@ -1214,19 +1622,23 @@ function balances.beginAction(action)
   return true
 end
 
-function balances.confirmDefence(action)
-  if balances.action ~= action or action.kind ~= 'defence' then return false end
+function balances.confirmAction(action)
+  if balances.action ~= action or not action.requiresConfirmation then return false end
   if not action.confirmed then
     action.confirmed = true
     action.confirmedPrompt = dem.runtime.promptSerial or 0
+    if action.resource == 'prompt' and not action.manualPass then
+      action.readiness = {bal = readinessSerial.bal, eq = readinessSerial.eq}
+    end
   end
   if action.resource ~= 'prompt' and action.recovered then release() end
   return true
 end
+balances.confirmDefence = balances.confirmAction
 
 function balances.onPrompt()
   local action = balances.action
-  if action and action.kind == 'defence' and action.resource == 'prompt'
+  if action and action.requiresConfirmation and action.resource == 'prompt'
       and (action.manualPass or action.confirmed)
       and (dem.runtime.promptSerial or 0) &gt; (action.manualPass and action.sentPrompt or action.confirmedPrompt)
       and readinessSerial.bal &gt; action.readiness.bal and readinessSerial.eq &gt; action.readiness.eq
@@ -1234,7 +1646,7 @@ function balances.onPrompt()
 end
 
 function balances.rejectAction(action)
-  if not action or balances.action ~= action or action.lost then return false end
+  if not action or balances.action ~= action or action.lost or action.confirmed then return false end
   -- A confirmed refusal has no balance cycle to wait for. Leave readiness
   -- exactly as observed; in particular do not undo beginAction's pessimism.
   action.rejected = true
@@ -1302,6 +1714,208 @@ end
 </script>
 				<eventHandlerList />
 			</Script>
+			<Script isActive="yes" isFolder="no">
+				<name>Defence Controller</name>
+				<packageName></packageName>
+				<script>-- The setup pass and optional maintenance share the action gate with Hunt.
+local entries = {
+  {name = 'arctar', command = 'summon arctar', resource = 'eq', mana = 27},
+  {name = 'warmth', command = 'invoke warmth', resource = 'prompt'},
+  {name = 'astralvision', command = 'invoke astralvision', resource = 'prompt'},
+  {name = 'distortion', command = 'invoke distortion', resource = 'prompt'},
+  {name = 'mindseye', command = 'touch mindseye', resource = 'prompt'}
+}
+local known = {shield = true}
+for _, entry in ipairs(entries) do known[entry.name] = true end
+dem.defences = {
+  enabled = false, active = {}, reason = 'Disabled.',
+  cooldowns = {arctar = false, unleash = false}, arctarMana = 18
+}
+local defences = dem.defences
+local arctarLine, arctarUnleashed
+
+function defences.stop(reason)
+  local wasEnabled = defences.enabled
+  local wasPass = defences.pass ~= nil
+  defences.enabled = false
+  defences.pass = nil
+  defences.reason = reason or 'Disabled by user.'
+  -- A pending command still owns its confirmation and recovery after toggling off.
+  if wasEnabled then
+    dem.message((wasPass and 'Defence sequence: ' or 'Defence maintenance off: ') .. defences.reason)
+  end
+end
+
+function defences.reset(reason)
+  defences.stop(reason)
+  defences.active = {}
+  defences.cooldowns = {arctar = false, unleash = false}
+  defences.endPrompt()
+  dem.cancel('defence-watchdog')
+end
+
+function defences.toggle()
+  if defences.enabled then defences.stop(); return false end
+  if dem.balances.dead then dem.message('Defence maintenance remains off while you are dead.'); return false end
+  defences.enabled = true
+  defences.reason = 'Waiting for character readiness.'
+  dem.message('Defence maintenance on.')
+  dem.schedule()
+  return true
+end
+
+-- The manual alias requests one complete pass; repeated use never cancels it.
+function defences.run()
+  if dem.balances.dead then dem.message('Cannot run defences while you are dead.'); return false end
+  if not defences.enabled or not defences.pass then
+    defences.pass = {index = 1}
+    defences.enabled = true
+  end
+  defences.step()
+  dem.message('Defence sequence: ' .. defences.reason)
+  dem.schedule()
+  return true
+end
+
+function defences.setActive(name, active)
+  if not known[name] or type(active) ~= 'boolean' then return false end
+  defences.active[name] = active
+  local action = dem.balances.action
+  if active and action and action.kind == 'defence' and action.defence == name then
+    dem.balances.confirmDefence(action)
+  end
+  dem.schedule()
+  return true
+end
+
+function defences.onCooldownReady(name)
+  if defences.cooldowns[name] == nil then return end
+  defences.cooldowns[name] = false
+  dem.schedule()
+end
+
+function defences.onShield(source)
+  defences.setActive('shield', true)
+  local action = dem.balances.action
+  if action and action.kind == 'shield' and action.source == source
+      and (source ~= 'arctar' or arctarUnleashed) then
+    dem.balances.confirmAction(action)
+  end
+end
+
+local arctarMessages = {
+  summon = 'You close your eyes and reach out with your mind towards the Demon Plane, seeking out the presence of Arctar, the Defender. Your search is successful and a burden descends upon your soul as the possession takes hold.',
+  banish = 'You close your eyes and focus all your willpower on the demon that is possessing you, driving away the presence of Arctar, the Defender.'
+}
+local unleashPrefix = 'You focus upon your pact and a terrifying visage of '
+local arctarUnleashPrefix = unleashPrefix .. 'Arctar, the Defender appears briefly in front of '
+local arctarSelf = arctarUnleashPrefix .. 'yourself, wreathed in flames.'
+
+function defences.onArctarLine(line)
+  if not arctarLine and line:sub(1, 23) ~= 'You close your eyes and'
+      and line:sub(1, #unleashPrefix) ~= unleashPrefix then return end
+  line = dem.trim(line):gsub('%s+', ' ')
+  local candidate = arctarLine and (arctarLine .. ' ' .. line) or line
+  arctarLine = nil
+  for kind, message in pairs(arctarMessages) do
+    if candidate == message then
+      defences.setActive('arctar', kind == 'summon')
+      return
+    end
+    if message:sub(1, #candidate + 1) == candidate .. ' ' then
+      arctarLine = candidate
+    end
+  end
+  if candidate:match('^You focus upon your pact and a terrifying visage of .+, wreathed in flames%.$') then
+    defences.cooldowns.unleash = true
+    if candidate:sub(1, #arctarUnleashPrefix) == arctarUnleashPrefix then
+      defences.cooldowns.arctar = true
+      arctarUnleashed = candidate == arctarSelf
+    end
+  elseif (#candidate &lt; 300 and candidate:sub(1, #unleashPrefix) == unleashPrefix) then
+    arctarLine = candidate
+  end
+end
+
+function defences.endPrompt()
+  arctarLine, arctarUnleashed = nil, nil
+end
+
+local function finite(n)
+  return type(n) == 'number' and n == n and n ~= math.huge and n ~= -math.huge
+end
+
+local function submit(entry, manualPass)
+  local command = entry.command
+  local action = {kind = 'defence', defence = entry.name,
+    resource = manualPass and 'prompt' or entry.resource, manualPass = manualPass, started = dem.now()}
+  if not dem.balances.beginAction(action) then return end
+  if manualPass then defences.pass.action = action end
+  defences.reason = 'Submitted ' .. command .. '; waiting for ' .. (manualPass and 'a fresh ready prompt.' or 'confirmation and recovery.')
+  dem.defer('defence-watchdog', 10, function()
+    if dem.balances.action ~= action then return end
+    defences.stop('No confirmed completion for ' .. entry.name .. '; check the game response before retrying.')
+    if dem.hunt.enabled then dem.hunt.stop('The pending defence has not completed.') end
+  end)
+  send(command)
+end
+
+local function runPass()
+  local pass, b, v = defences.pass, dem.balances, dem.vitals
+  if pass.action and pass.action.completed then
+    pass.index, pass.action = pass.index + 1, nil
+  end
+  local entry = entries[pass.index]
+  if not entry then defences.stop('Complete.'); return end
+  if b.action then defences.reason = 'Waiting for the current command to finish.'; return end
+  -- A manual pass can use the displayed compact prompt. It need not invent a
+  -- maximum or assume the game reports optional prone/stunned GMCP fields.
+  if not finite(v.hp) or v.hp &lt;= 0 or not finite(v.mp) or v.mp &lt; 0 then
+    defences.reason = 'Waiting for a health/mana prompt.'; return
+  end
+  if finite(v.maxmp) and v.maxmp &gt; 0 and v.mp / v.maxmp * 100 &lt;= dem.settings.manaLimit then
+    defences.stop('Mana reached the configured limit.'); return
+  end
+  if not b.bal or not b.eq or v.prone == true or v.stunned == true then
+    defences.reason = 'Waiting for balance/equilibrium or a known incapacitation to clear.'; return
+  end
+  if entry.mana and v.mp &lt; entry.mana then
+    defences.reason = 'Waiting for enough mana for ' .. entry.name .. '.'; return
+  end
+  submit(entry, true)
+end
+
+function defences.step()
+  if not defences.enabled then return end
+  local b, v = dem.balances, dem.vitals
+  if b.dead then defences.stop('You are dead.'); return end
+  if dem.hunt.enabled then defences.reason = 'Paused while Hunt is on.'; return end
+  if defences.pass then runPass(); return end
+  if b.action then defences.reason = 'Waiting for the current command confirmation and recovery.'; return end
+  if not finite(v.hp) or v.hp &lt;= 0 or not finite(v.mp) or v.mp &lt; 0
+      or not finite(v.maxmp) or v.maxmp &lt;= 0 or v.prone == nil or v.stunned == nil then
+    defences.reason = 'Waiting for character data.'; return
+  end
+  if v.mp / v.maxmp * 100 &lt;= dem.settings.manaLimit then
+    defences.stop('Mana reached the configured limit.'); return
+  end
+  if not b.bal or not b.eq or v.prone or v.stunned then
+    defences.reason = 'Waiting for balance, equilibrium, standing and unstunned status.'; return
+  end
+  for _, entry in ipairs(entries) do
+    if not defences.active[entry.name] then
+      if entry.mana and v.mp &lt; entry.mana then
+        defences.reason = 'Waiting for enough mana for ' .. entry.name .. '.'; return
+      end
+      submit(entry, false)
+      return
+    end
+  end
+  defences.reason = 'All listed defences are confirmed active.'
+end
+</script>
+				<eventHandlerList />
+			</Script>
 			<ScriptGroup isActive="yes" isFolder="yes">
 				<name>Api stuff</name>
 				<packageName />
@@ -1314,7 +1928,7 @@ end
 -- a room list can refresh the currently reported room, never establish one.
 -- Generations protect local callbacks and submitted target identities.
 dem.room = {items = {}, order = {}, retired = {}, ready = false, players = {}, playersReady = false,
-  phase = 'unconfirmed', generation = 0, contextId = 0}
+  phase = 'unconfirmed', generation = 0, contextId = 0, snapshotSerial = 0}
 local room = dem.room
 local lastReceivedRoom, refreshError
 local timerKeys = {'room-retry', 'room-fallback', 'room-timeout'}
@@ -1345,7 +1959,10 @@ local function changed(reason)
 end
 
 -- Also used after Hunt retires an ID without waiting for another GMCP packet.
-function room.notify(reason) changed(reason) end
+function room.notify(reason)
+  if dem.navigation then dem.navigation.invalidateClear() end
+  changed(reason)
+end
 
 function room.living(item)
   if type(item) ~= 'table' or not id(item.id) or type(item.name) ~= 'string'
@@ -1410,6 +2027,8 @@ local function invalidate()
   room.items, room.order, room.retired = {}, {}, {}
   room.players, room.playersReady = {}, false
   room.ready, room.phase = false, 'unconfirmed'
+  if dem.health then dem.health.reset() end
+  if dem.navigation then dem.navigation.invalidateClear() end
   refreshError = nil
 end
 
@@ -1426,7 +2045,7 @@ function room.subscribe()
   if room.subscribed then return end
   room.subscribed = true
   if type(sendGMCP) == 'function' then
-    sendGMCP('Core.Supports.Add ["Char 1","Char.Items 1","Room 1"]')
+    sendGMCP('Core.Supports.Add ["Char 1","Char.Items 1","Room 1","IRE.Target 1"]')
   end
 end
 
@@ -1511,11 +2130,13 @@ function room.onInfo(payload)
     invalidate()
     if transition then room.contextId = room.contextId + 1 end
     room.num, room.area, room.phase = number, area(payload.area), 'waiting'
+    if dem.navigation then dem.navigation.onInfo() end
     if dem.hunt then dem.hunt.onRoomChanged() end
     local pendingTarget = dem.targeting and dem.targeting.kind == 'pending'
     if hunting() or pendingTarget then room.request('Room identity confirmed') end
   elseif payload.area ~= nil then
     room.area = area(payload.area)
+    if dem.navigation then dem.navigation.onInfo() end
   end
   if payload.name ~= nil then room.name = area(payload.name) end
   room.disconnected = false
@@ -1585,6 +2206,8 @@ function room.onList(payload)
     end
   end
   room.processingList = false
+  room.snapshotSerial = room.snapshotSerial + 1
+  if dem.navigation then dem.navigation.onRoster() end
   changed()
 end
 
@@ -1599,6 +2222,7 @@ local function delta(payload, liveAdd)
   if not room.items[key] then room.order[#room.order + 1] = key end
   room.items[key] = item
   if liveAdd then room.retired[key] = nil end
+  if dem.navigation then dem.navigation.invalidateClear() end
   if dem.hunt then dem.hunt.onObserved(key, item) end
   changed()
 end
@@ -1613,6 +2237,7 @@ function room.onRemove(payload)
   local key = id(type(value) == 'table' and value.id or value)
   if not key then return end
   room.items[key], room.retired[key] = nil, true
+  if dem.navigation then dem.navigation.invalidateClear() end
   for i = #room.order, 1, -1 do
     if room.order[i] == key then table.remove(room.order, i) end
   end
@@ -1665,6 +2290,71 @@ end
 </script>
 					<eventHandlerList />
 				</Script>
+				<Script isActive="yes" isFolder="no">
+					<name>Denizen Health</name>
+					<packageName></packageName>
+					<script>-- Target health is an observation, never evidence that a denizen died.
+dem.health = {values = {}, requested = nil}
+local health = dem.health
+local context, zeroRequested = nil, {}
+
+function health.reset()
+  health.values, health.requested, zeroRequested = {}, nil, {}
+  context = dem.room.contextId
+end
+
+function health.get(key)
+  if context ~= dem.room.contextId then return nil end
+  return health.values[tostring(key)]
+end
+
+function health.label(key)
+  local value = health.get(key)
+  return value ~= nil and tostring(value) .. '%' or 'unknown'
+end
+
+function health.sync(key)
+  local room = dem.room
+  if context ~= room.contextId then health.reset() end
+  for id in pairs(health.values) do
+    if room.retired[id] or not room.living(room.items[id]) then
+      health.values[id], zeroRequested[id] = nil, nil
+    end
+  end
+  if not key then key = dem.targeting.denizenId() end
+  key = key and tostring(key) or nil
+  if key and (room.retired[key] or not room.living(room.items[key])) then key = nil end
+  if health.requested == key then return end
+  health.requested = key
+  if key then
+    health.values[key], zeroRequested[key] = nil, nil
+    room.subscribe()
+    if type(sendGMCP) == 'function' then sendGMCP('IRE.Target.Set "' .. key .. '"') end
+  end
+end
+
+function health.onInfo(payload)
+  if type(payload) ~= 'table' or context ~= dem.room.contextId then return end
+  local key = tostring(payload.id)
+  if key ~= health.requested or dem.room.retired[key]
+      or not dem.room.living(dem.room.items[key]) then return end
+  local raw = payload.hpperc
+  if type(raw) == 'string' then raw = dem.trim(raw):gsub('%%$', '') end
+  local value = (type(raw) == 'number' or type(raw) == 'string') and tonumber(raw) or nil
+  if not value or value ~= value or value &lt; 0 or value &gt; 100 then value = nil end
+  health.values[key] = value
+  if value == 0 and not zeroRequested[key] then
+    zeroRequested[key] = true
+    dem.room.request('Target health reached zero; reconcile roster', false)
+  elseif value and value &gt; 0 then zeroRequested[key] = nil end
+  if type(raiseEvent) == 'function' then raiseEvent('dem.healthChanged', key, value) end
+end
+
+dem.bind('dem.targetChanged', function() health.sync() end)
+dem.bind('dem.roomChanged', function() health.sync() end)
+</script>
+					<eventHandlerList />
+				</Script>
 			</ScriptGroup>
 			<ScriptGroup isActive="yes" isFolder="yes">
 				<name>Autobasher</name>
@@ -1674,13 +2364,24 @@ end
 				<Script isActive="yes" isFolder="no">
 					<name>Hunt Controller</name>
 					<packageName></packageName>
-					<script>dem.hunt = {enabled = false, reason = 'Disabled.'}
+					<script>dem.hunt = {enabled = false, mode = 'stationary', reason = 'Disabled.'}
 local hunt = dem.hunt
 local selected, manualReference, stateWaiting, waitingGeneration, watchedAction
+local lastSendWasShield = false
 local submittedByName, submittedById, submittedAny = {}, {}, false
+
+-- Expose the physical target retained by combat, including manual generic
+-- references that change while an older action is still recovering.
+function hunt.selectedId()
+  if selected and selected.reference == dem.target and selected.room == dem.room.num
+      and not dem.room.retired[selected.key] and dem.room.living(dem.room.items[selected.key]) then
+    return selected.key
+  end
+end
 
 function hunt.resetTerminalHistory()
   submittedByName, submittedById, submittedAny = {}, {}, false
+  lastSendWasShield = false
 end
 
 local function rememberName(action, name)
@@ -1728,7 +2429,7 @@ local function watchAction(action)
   local elapsed = math.max(0, dem.now() - (action.started or dem.now()))
   dem.defer('attack-watchdog', math.max(0, 10 - elapsed), function()
     if hunt.enabled and dem.balances.action == action then
-      hunt.stop('The last action has not completed a confirmed balance cycle.')
+      hunt.stop('The last action has not confirmed and recovered.')
     end
   end)
 end
@@ -1741,6 +2442,8 @@ end
 function hunt.stop(reason)
   local wasEnabled = hunt.enabled
   hunt.enabled = false
+  if dem.navigation then dem.navigation.reset(reason) end
+  hunt.mode = 'stationary'
   if dem.room.cancelRefresh then dem.room.cancelRefresh() end
   hunt.reason = reason or 'Disabled by user.'
   cancelState()
@@ -1759,13 +2462,18 @@ function hunt.onAttackRejected(reason)
   hunt.stop(reason or 'The submitted attack was refused.')
 end
 
-function hunt.toggle()
+function hunt.toggle(mode)
   if hunt.enabled then hunt.stop(); return false end
   if dem.balances.dead then
     hunt.stop('You are dead.')
     message('Hunt mode remains off while you are dead.')
     return false
   end
+  if mode == 'explore' then
+    local ok, reason = dem.navigation.start()
+    if not ok then hunt.reason = reason; message(reason); return false end
+  end
+  hunt.mode = mode == 'explore' and 'explore' or 'stationary'
   if dem.targeting.kind == 'player' then dem.targeting.clear('hunt') end
   manualReference = dem.targeting.kind == 'denizen' and dem.targeting.source == 'manual' and dem.target or nil
   selected, hunt.enabled = nil, true
@@ -1778,6 +2486,7 @@ function hunt.toggle()
 end
 
 function hunt.onRoomChanged()
+  if dem.defences.active.shield then dem.defences.setActive('shield', false) end
   selected, manualReference = nil, nil
   if dem.targeting.kind == 'denizen' then dem.targeting.clear('hunt') end
   if hunt.enabled then waitForState('Waiting for the new room roster.') end
@@ -1785,6 +2494,18 @@ end
 
 function hunt.onTargetChanged(oldReference, reference, kind, source)
   if source == 'hunt' or not hunt.enabled then return end
+  if dem.navigation.active then
+    if dem.navigation.pending then
+      hunt.stop('Manual targeting stopped exploration during movement.'); return
+    end
+    dem.navigation.reset('Manual targeting selected stationary hunting.')
+    hunt.mode = 'stationary'
+    -- Cancel an exploration-only blocking clear query, preserving its usable roster.
+    if dem.room.refresh and dem.room.refresh.reason == 'Confirming the room is clear.' then
+      dem.room.cancelRefresh()
+      dem.room.ready, dem.room.phase = true, 'ready'
+    end
+  end
   local preferredKey = selected and selected.room == dem.room.num and selected.key or nil
   selected = nil
   if not reference then hunt.stop('The shared target was cleared.'); return end
@@ -1881,6 +2602,7 @@ function hunt.step()
   if v and finite(v.mp) and finite(v.maxmp) and v.maxmp &gt; 0 and v.mp / v.maxmp * 100 &lt;= dem.settings.manaLimit then
     hunt.stop('Mana reached the configured limit.'); return
   end
+  if dem.navigation.blocked() then return end
   if shielding then
     if not knownVitals() or b.bal == nil or b.eq == nil or v.prone == nil or v.stunned == nil then
       waitForState('Waiting for character data to shield.'); return
@@ -1891,13 +2613,15 @@ function hunt.step()
     if not b.bal or not b.eq or v.prone or v.stunned then
       hunt.reason = 'Shielding: waiting for balance, equilibrium, standing and unstunned status.'; return
     end
-    local cost = dem.ritualism.manaCost({'inversion', 'hammer'})
-    if not cost or v.mp &lt; cost then hunt.reason = 'Shielding: waiting for 18 mana.'; return end
-    local command, err = dem.ritualism.buildTrace({'inversion', 'hammer'}, 'me')
-    if not command then hunt.stop(err); return end
-    local action = {kind = 'shield', started = dem.now()}
+    if dem.defences.active.shield then hunt.reason = 'Shielding: protected while health recovers.'; return end
+    local cooldowns = dem.defences.cooldowns
+    local arctar = not cooldowns.arctar and not cooldowns.unleash and v.mp &gt;= dem.defences.arctarMana
+    local command = arctar and 'unleash arctar at me' or 'touch shield'
+    local action = {kind = 'shield', source = arctar and 'arctar' or 'tattoo',
+      resource = arctar and 'prompt' or 'eq', started = dem.now()}
     if not b.beginAction(action) then return end
-    hunt.reason = 'Shielding: waiting for confirmed balance recovery.'
+    lastSendWasShield = true
+    hunt.reason = 'Shielding: waiting for confirmation and readiness.'
     watchAction(action)
     send(command)
     return
@@ -1912,17 +2636,19 @@ function hunt.step()
     validateManualSelection()
     if not hunt.enabled then return end
   end
-  if b.action then hunt.reason = 'Waiting for the confirmed attack balance cycle.'; watchAction(b.action); return end
+  if b.action then hunt.reason = 'Waiting for the current action to finish.'; watchAction(b.action); return end
   watchedAction = nil
   if not b.bal or not b.eq then hunt.reason = 'Waiting for balance and equilibrium.'; return end
   if v.prone or v.stunned then hunt.reason = 'Waiting until standing and unstunned.'; return end
-  local cost = dem.ritualism.manaCost({'fire', 'ice'})
-  if not cost or v.mp &lt; cost then hunt.reason = 'Waiting for enough mana for the full attack.'; return end
   local candidate = choose()
   if not candidate then
-    if hunt.enabled then hunt.reason = 'No eligible allowed denizens in this room.' end
+    if hunt.enabled then
+      hunt.reason = 'No eligible allowed denizens in this room.'
+      dem.navigation.onClear()
+    end
     return
   end
+  dem.navigation.invalidateClear()
   if not hunt.enabled then return end
   selected = candidate
   if not candidate.manual and dem.target ~= candidate.reference then
@@ -1930,13 +2656,15 @@ function hunt.step()
   end
   -- Target-change callbacks are synchronous; recheck before committing the send.
   if not hunt.enabled or dem.target ~= candidate.reference or b.action then return end
+  dem.health.sync(candidate.key)
   -- The shared reference stays opaque; attack only the pinned room identity.
   -- Sending a generic word here would let the server switch matching denizens.
-  local command, err = dem.ritualism.buildTrace({'fire', 'ice'}, candidate.key)
-  if not command then hunt.stop(err or 'Cannot build the hunting attack.'); return end
-  local action = {kind = 'attack', reference = dem.target, key = candidate.key, room = room.num, generation = room.generation,
+  local target, err = dem.validReference(candidate.key)
+  if not target then hunt.stop(err or 'Cannot build the hunting attack.'); return end
+  local action = {kind = 'attack', resource = 'eq', reference = dem.target, key = candidate.key, room = room.num, generation = room.generation,
     item = candidate.item, retired = false, started = dem.now()}
   if not b.beginAction(action) then return end
+  lastSendWasShield = false
   local name = dem.norm(candidate.item.name)
   -- Text has no ID. Once another physical target could own the same name,
   -- defer that ambiguous text to GMCP rather than retiring its successor.
@@ -1945,9 +2673,9 @@ function hunt.step()
   submittedAny = true
   submittedById[room.generation .. ':' .. action.key] = action
   hunt.lastAction = action
-  hunt.reason = 'Waiting for the confirmed attack balance cycle.'
+  hunt.reason = 'Waiting for confirmed attack equilibrium recovery.'
   watchAction(action)
-  send(command)
+  send('invoke combustion ' .. target)
 end
 
 local function belongsToRoom(action)
@@ -1999,6 +2727,15 @@ function hunt.onKill(name)
   end
 end
 function hunt.onMissing()
+  -- The same response can refuse a self-shield or report an absent denizen.
+  -- Keep its shield provenance even after the first refusal releases the action.
+  if lastSendWasShield then
+    local pending = dem.balances.action
+    if pending and pending.kind == 'shield' and not pending.confirmed then
+      hunt.onAttackRejected('The emergency shield was refused.')
+    end
+    return
+  end
   local action = hunt.lastAction
   if action and action.ambiguousMissing and not action.retired then reconcile(action)
   else retire(action) end
@@ -2069,8 +2806,8 @@ function hunt.list()
 end
 function hunt.status(detailed)
   if detailed ~= true then
-    message('Hunt mode ' .. (hunt.enabled and 'on' or 'off') .. '; target: '
-      .. (dem.target or 'none') .. '; ' .. hunt.reason)
+    message('Hunt mode ' .. (hunt.enabled and 'on' or 'off') .. ' (' .. hunt.mode .. '); target: '
+      .. (dem.target or 'none') .. '; target health: ' .. dem.health.label(dem.health.requested) .. '; ' .. hunt.reason)
     return hunt.enabled
   end
   local v, b = dem.vitals, dem.balances
@@ -2096,6 +2833,10 @@ function hunt.status(detailed)
     .. '; last GMCP room: ' .. value(diagnostics.lastReceivedRoom)
     .. '; refresh error: ' .. (diagnostics.refreshError or 'none')
     .. '; target type: ' .. (dem.targeting.kind or 'none')
+    .. '; mode: ' .. hunt.mode .. '; target health: ' .. dem.health.label(dem.health.requested)
+    .. '; visited: ' .. dem.navigation.count .. '; destination: ' .. value(dem.navigation.destination)
+    .. '; pending direction: ' .. value(dem.navigation.pending and dem.navigation.pending.direction)
+    .. '; movement: ' .. dem.navigation.reason
     .. (hunt.enabled and '; state: ' or '; last stop: ') .. hunt.reason)
   return hunt.enabled
 end
@@ -2108,6 +2849,193 @@ function hunt.setLimits(hp, mana)
   dem.saveSettings()
   schedule()
   return true
+end
+</script>
+					<eventHandlerList />
+				</Script>
+				<Script isActive="yes" isFolder="no">
+					<name>Mapped Exploration</name>
+					<packageName></packageName>
+					<script>-- Read the Mudlet map, but own every movement and wait for server evidence.
+dem.navigation = {active = false, visited = {}, count = 0, reason = 'Disabled.'}
+local nav = dem.navigation
+local commands = {north='n', northeast='ne', east='e', southeast='se', south='s',
+  southwest='sw', west='w', northwest='nw', up='u', down='d', ['in']='in', out='out'}
+local clearCheck
+
+local function mapCall(name, ...)
+  local fn = _G[name]
+  if type(fn) ~= 'function' then return nil end
+  local ok, value = pcall(fn, ...)
+  if ok then return value end
+end
+
+local function mappedArea(key)
+  local area = mapCall('getRoomArea', tonumber(key))
+  return type(area) == 'number' and area &gt; 0 and area or nil
+end
+
+local function hasAllowed()
+  for _,yes in pairs(dem.settings.areas[nav.area or dem.room.area] or {}) do
+    if yes == true then return true end
+  end
+  return false
+end
+
+function nav.reset(reason)
+  dem.cancel('movement-timeout')
+  nav.active, nav.pending, nav.destination = false, nil, nil
+  nav.visited, nav.count, nav.current, nav.area, nav.mapArea = {}, 0, nil, nil, nil
+  nav.reason, clearCheck = reason or 'Disabled.', nil
+end
+
+function nav.start()
+  nav.reset()
+  local room = dem.room
+  if not room.num or not room.area then return nil, 'Exploration requires a confirmed room and area.' end
+  for _,name in ipairs({'getRoomArea','getRoomExits','roomLocked','hasExitLock','getDoors'}) do
+    if type(_G[name]) ~= 'function' then return nil, 'Exploration requires Mudlet map APIs: ' .. name .. '.' end
+  end
+  local area = mappedArea(room.num)
+  if not area then return nil, 'The starting room is not in a loaded mapped area.' end
+  if mapCall('roomLocked', tonumber(room.num)) ~= false then return nil, 'The starting mapped room is locked or unavailable.' end
+  if not hasAllowed() then return nil, 'Exploration requires a nonempty hunt list for this area.' end
+  if mmp and mmp.autowalking then return nil, 'Stop mapper speedwalking before exploring.' end
+  nav.active, nav.current, nav.area, nav.mapArea = true, room.num, room.area, area
+  nav.reason = 'Waiting to clear the starting room.'
+  return true
+end
+
+function nav.invalidateClear() clearCheck = nil end
+
+function nav.onInfo()
+  if not nav.active then return end
+  local room, pending = dem.room, nav.pending
+  if room.area ~= nav.area or mappedArea(room.num) ~= nav.mapArea then
+    dem.hunt.stop('Exploration stopped: the reported room left the starting area.'); return
+  end
+  if pending then
+    if room.num == pending.to then
+      pending.arrived, nav.current = true, room.num
+      nav.reason = 'Waiting for the arrival room roster.'
+    elseif room.num ~= pending.from then
+      dem.hunt.stop('Exploration stopped: unexpected room arrival.')
+    end
+  elseif room.num ~= nav.current then
+    dem.hunt.stop('Exploration stopped: unexpected room change.')
+  end
+end
+
+function nav.onRoster()
+  local pending = nav.pending
+  if nav.active and pending and pending.arrived and dem.room.num == pending.to then
+    nav.pending = nil
+    dem.cancel('movement-timeout')
+    nav.reason = 'Checking the arrival room.'
+  end
+end
+
+function nav.onWrongDir()
+  if nav.active and nav.pending then dem.hunt.stop('Exploration stopped: movement was refused.') end
+end
+
+function nav.blocked()
+  if not nav.active then return false end
+  if not hasAllowed() then
+    dem.hunt.stop('Exploration stopped: the area hunt list is empty.'); return true
+  end
+  if mmp and mmp.autowalking then
+    dem.hunt.stop('Exploration stopped: mapper speedwalking is active.'); return true
+  end
+  if nav.pending then
+    dem.hunt.reason = nav.reason
+    return true
+  end
+  return false
+end
+
+local function edges(key)
+  local exits, doors = mapCall('getRoomExits', tonumber(key)), mapCall('getDoors', tonumber(key))
+  if type(exits) ~= 'table' or type(doors) ~= 'table' then return nil end
+  local result = {}
+  for name, destination in pairs(exits) do
+    local command = commands[name]
+    local number = tonumber(destination)
+    local door = doors[name] or (command and doors[command])
+    if command and number and number &gt; 0 and number == math.floor(number) then
+      local to = tostring(number)
+      if to ~= key and mappedArea(to) == nav.mapArea
+          and mapCall('roomLocked', number) == false
+          and mapCall('hasExitLock', tonumber(key), name) == false
+          and (door == nil or door == 1) then
+        result[#result+1] = {to=to, command=command}
+      end
+    end
+  end
+  table.sort(result, function(a,b) return a.command &lt; b.command end)
+  return result
+end
+
+local function idLess(a,b)
+  if #a ~= #b then return #a &lt; #b end
+  return a &lt; b
+end
+
+local function nextStep()
+  local queue, head = {{key=dem.room.num, depth=0}}, 1
+  local seen, foundDepth, candidates = {[dem.room.num]=true}, nil, {}
+  while head &lt;= #queue do
+    local entry = queue[head]; head = head+1
+    if foundDepth and entry.depth &gt; foundDepth then break end
+    if not nav.visited[entry.key] then
+      foundDepth = entry.depth; candidates[#candidates+1] = entry
+    elseif not foundDepth then
+      local available = edges(entry.key)
+      if not available then return nil, 'Mapped exits could not be read.' end
+      for _,edge in ipairs(available) do
+        if not seen[edge.to] then
+          seen[edge.to] = true
+          queue[#queue+1] = {key=edge.to, depth=entry.depth+1,
+            first=entry.first or edge}
+        end
+      end
+    end
+  end
+  table.sort(candidates, function(a,b) return idLess(a.key,b.key) end)
+  return candidates[1]
+end
+
+-- Called only after combat selection finds no eligible target and all action
+-- gates are open. A second full snapshot must confirm every departure.
+function nav.onClear()
+  if not nav.active or nav.pending then return end
+  local room = dem.room
+  if not clearCheck or clearCheck.context ~= room.contextId then
+    clearCheck = {context=room.contextId, serial=room.snapshotSerial}
+    nav.reason = 'Confirming the room is clear.'
+    dem.hunt.reason = nav.reason
+    room.request(nav.reason, true)
+    return
+  end
+  if room.snapshotSerial &lt;= clearCheck.serial then return end
+  if not nav.visited[room.num] then nav.visited[room.num] = true; nav.count = nav.count+1 end
+  local step, err = nextStep()
+  if not step then
+    dem.hunt.stop(err or ('Exploration complete: checked ' .. nav.count .. ' reachable rooms.'))
+    return
+  end
+  local first = step.first
+  nav.destination = step.key
+  local pending = {from=room.num, to=first.to, direction=first.command, arrived=false}
+  nav.pending, clearCheck = pending, nil
+  nav.reason = 'Moving ' .. first.command .. '; waiting for room confirmation.'
+  dem.hunt.reason = nav.reason
+  dem.defer('movement-timeout', 10, function()
+    if nav.active and nav.pending == pending then
+      dem.hunt.stop('Exploration stopped: arrival identity or roster was not confirmed within ten seconds.')
+    end
+  end)
+  send(first.command)
 end
 </script>
 					<eventHandlerList />
@@ -2209,11 +3137,7 @@ local function nameLess(a, b)
 end
 
 local function selectedId()
-  if owner.targeting.kind ~= 'denizen' or not owner.target then return nil end
-  local action = owner.hunt.lastAction
-  local preferred = action and action.reference == owner.target and action.key or nil
-  local _, key = owner.room.identify(owner.target, preferred)
-  return owner.room.items[key] and key or nil
+  return owner.targeting.denizenId()
 end
 
 local function denizens(console)
@@ -2257,6 +3181,9 @@ local function denizens(console)
     end
     local text = (group.selected and '[T] ' or '') .. group.name
     if #group.ids &gt; 1 then text = text .. ' x' .. #group.ids end
+    if group.selected then
+      text = text .. ' [ID ' .. selected .. ': ' .. owner.health.label(selected) .. ']'
+    end
     if group.protected &gt; 0 then
       text = text .. (group.protected == #group.ids and ' [protected]' or ' [' .. group.protected .. ' protected]')
     end
@@ -2429,13 +3356,14 @@ owner.bind('dem.roomChanged', function(_, reason)
   else ui.requestRender() end
 end)
 owner.bind('dem.targetChanged', ui.requestRender)
+owner.bind('dem.healthChanged', ui.requestRender)
 owner.bind('dem.huntListChanged', ui.requestRender)
 </script>
 					<eventHandlerList />
 				</Script>
 			</ScriptGroup>
 		</ScriptGroup>
-		<ScriptGroup isActive="yes" isFolder="yes">
+		<ScriptGroup isActive="no" isFolder="yes">
 			<name>Diabolist</name>
 			<packageName />
 			<script />
@@ -2448,7 +3376,8 @@ owner.bind('dem.huntListChanged', ui.requestRender)
 				<Script isActive="yes" isFolder="no">
 					<name>Ritualism Commands</name>
 					<packageName></packageName>
-					<script>dem.ritualism = {duality = true, costs = {fire = 9, ice = 9, inversion = 9, hammer = 9, vitality = 9}}
+					<script>if not dem or dem.profession ~= "diabolist" then return end
+dem.ritualism = {duality = true, costs = {fire = 9, ice = 9, inversion = 9, hammer = 9, vitality = 9}}
 local ritualism = dem.ritualism
 
 local function validSymbols(symbols)
@@ -2498,7 +3427,8 @@ end
 				<Script isActive="yes" isFolder="no">
 					<name>Malignosis Commands</name>
 					<packageName></packageName>
-					<script>dem.malignosis = {}
+					<script>if not dem or dem.profession ~= "diabolist" then return end
+dem.malignosis = {}
 local commands = {
   ouroboros = 'summon ouroboros', armor = 'demon armor', regeneration = 'demon regeneration',
   soulmask = 'demon soulmask', syphon = 'demon syphon'
@@ -2513,7 +3443,8 @@ end
 				<Script isActive="yes" isFolder="no">
 					<name>Diabolist defences</name>
 					<packageName></packageName>
-					<script>-- Class registry and maintenance share the same action gate as Hunt.
+					<script>if not dem or dem.profession ~= "diabolist" then return end
+-- Class registry and maintenance share the same action gate as Hunt.
 dem.diabolist = {defences = {
   {name = 'ouroboros', skill = 'malignosis', resource = 'prompt'},
   {name = 'armor', skill = 'malignosis', resource = 'prompt'},
@@ -2694,7 +3625,8 @@ end
 				<Script isActive="yes" isFolder="no">
 					<name>Nightfall Commands</name>
 					<packageName></packageName>
-					<script>dem.nightfall = {
+					<script>if not dem or dem.profession ~= "diabolist" then return end
+dem.nightfall = {
   types = {'vigorous', 'whispering', 'translucent', 'fiery', 'midnight', 'glowing', 'reflective', 'ethereal'},
   limits = {simultaneous = 4, charges = 5, inactivitySeconds = 30}
 }
@@ -2832,6 +3764,30 @@ end
 				</Script>
 			</ScriptGroup>
 		</ScriptGroup>
+		<ScriptGroup isActive="yes" isFolder="yes">
+			<name>Summoner</name>
+			<packageName />
+			<script />
+			<eventHandlerList />
+			<ScriptGroup isActive="yes" isFolder="yes">
+				<name>Noctu</name>
+				<packageName />
+				<script />
+				<eventHandlerList />
+			</ScriptGroup>
+			<ScriptGroup isActive="yes" isFolder="yes">
+				<name>Enslavery</name>
+				<packageName />
+				<script />
+				<eventHandlerList />
+			</ScriptGroup>
+			<ScriptGroup isActive="yes" isFolder="yes">
+				<name>Tarot</name>
+				<packageName />
+				<script />
+				<eventHandlerList />
+			</ScriptGroup>
+		</ScriptGroup>
 		<Script isActive="yes" isFolder="no">
 			<name>Initialize Demonic</name>
 			<packageName></packageName>
@@ -2840,14 +3796,13 @@ function dem.onPrompt(text)
   dem.cancel('hunt-step')
   dem.runtime.promptSerial = (dem.runtime.promptSerial or 0) + 1
   if text then dem.balances.parsePrompt(text) end
-  dem.nightfall.finishSnapshot()
+  dem.defences.endPrompt()
   dem.balances.onPrompt()
   dem.step()
   dem.balances.endPrompt()
 end
 
 function dem.resetConnection(event)
-  dem.nightfall.resetWraiths()
   dem.defences.reset('Connection changed; type ddef to run the defence sequence again.')
   dem.hunt.stop('Connection changed; type hunt to enable again.')
   dem.hunt.lastAction = nil
@@ -2858,7 +3813,6 @@ function dem.resetConnection(event)
 end
 
 function dem.onDeath()
-  dem.nightfall.resetWraiths()
   dem.defences.reset('You are dead.')
   dem.hunt.stop('You are dead.')
   dem.hunt.lastAction = nil
@@ -2893,6 +3847,8 @@ gmcpHandler('Char.Items.List', dem.room.onList)
 gmcpHandler('Char.Items.Add', dem.room.onAdd)
 gmcpHandler('Char.Items.Remove', dem.room.onRemove)
 gmcpHandler('Char.Items.Update', dem.room.onUpdate)
+gmcpHandler('IRE.Target.Info', dem.health.onInfo)
+gmcpHandler('Room.WrongDir', dem.navigation.onWrongDir)
 dem.bind('sysDisconnectionEvent', dem.resetConnection)
 dem.bind('sysConnectionEvent', dem.resetConnection)
 dem.bind('sysProtocolEnabled', function(_, protocol)

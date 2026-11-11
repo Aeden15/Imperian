@@ -2,9 +2,28 @@ $ErrorActionPreference = 'Stop'
 $root = Split-Path $PSScriptRoot -Parent
 [xml]$package = Get-Content -LiteralPath (Join-Path $root 'Demonic/Demonic.xml') -Raw
 $order = @($package.SelectNodes('//ScriptPackage/*[self::Script or self::ScriptGroup]/name') | ForEach-Object { $_.InnerText })
-if (($order -join '|') -cne 'System|Diabolist|Initialize Demonic') { throw 'Export load order must be System, Diabolist, Initialize Demonic.' }
-$defs = @($package.SelectNodes('//AliasPackage/AliasGroup[name="Diabolist"]/AliasGroup[name="Ritualism"]/Alias[name="Defs"]'))
+if (($order -join '|') -cne 'System|Diabolist|Summoner|Initialize Demonic') { throw 'Incorrect export load order.' }
+$defs = @($package.SelectNodes('//AliasPackage//Alias[regex="^ddef$" and not(ancestor-or-self::*[@isActive="no"])]'))
 if ($defs.Count -ne 1 -or $defs[0].regex -cne '^ddef$' -or $defs[0].script -cne 'dem.defences.run()' -or $defs[0].GetAttribute('isActive') -cne 'yes') { throw 'Missing or incorrect Defs alias.' }
+if (!$defs[0].SelectSingleNode('ancestor::AliasGroup[name="Summoner"]')) { throw 'Active Defs alias must be under Summoner.' }
+$legacyFolders = @($package.SelectNodes('/*/*/*[name="Diabolist"]'))
+if ($legacyFolders.Count -ne 3) { throw 'Missing archived Diabolist folders.' }
+$legacyGuard = 'if not dem or dem.profession ~= "diabolist" then return end' + "`n"
+foreach ($folder in $legacyFolders) {
+    if ($folder.GetAttribute('isActive') -cne 'no') { throw 'Diabolist folder must be disabled.' }
+    foreach ($script in $folder.SelectNodes('.//script[string-length(text()) > 0]')) {
+        if (!$script.InnerText.StartsWith($legacyGuard, [StringComparison]::Ordinal)) { throw 'Diabolist Lua is missing its profession guard.' }
+        # Check archived handler bodies below, after proving the guards exist.
+        $script.InnerText = $script.InnerText.Substring($legacyGuard.Length)
+    }
+}
+$summonerDefences = $package.SelectSingleNode('//TriggerPackage/TriggerGroup[name="Summoner"]/TriggerGroup[name="Defences"]')
+if (!$summonerDefences -or $summonerDefences.SelectNodes('Trigger').Count -ne 4) { throw 'Summoner defence triggers must be siblings.' }
+$mindseyeFolder = $package.SelectSingleNode('//TriggerPackage/TriggerGroup[name="System"]/TriggerGroup[name="Curing"]/TriggerGroup[name="Defences"]')
+foreach ($entry in @(@('Mindseye activated', 'true'), @('Mindseye stripped', 'false'))) {
+    $node = $mindseyeFolder.SelectSingleNode(('Trigger[name="{0}"]' -f $entry[0]))
+    if (!$node -or $node.script -cne ('dem.defences.setActive("mindseye", {0})' -f $entry[1])) { throw 'Mindseye must use shared defence state.' }
+}
 $ceased = $package.SelectSingleNode('//TriggerPackage//Trigger[name="Nightfall cease"]')
 if (!$ceased -or $ceased.regexCodeList.string -cne '^The darkness around you dissipates\.$') { throw 'Incorrect Nightfall cessation pattern.' }
 $fixtures = @{
@@ -75,4 +94,4 @@ foreach ($node in $package.SelectNodes('//script[string-length(text()) > 0]')) {
     # Runtime modules may legitimately use a local alias for their dem namespace.
     if ($node.ParentNode.LocalName -eq 'Trigger' -and $node.InnerText -cmatch '(?<![\w.])(mal|nightfall)\.') { throw ('Undefined legacy global in ' + $node.ParentNode.name) }
 }
-Write-Output 'Export startup order, Defs alias, Nightfall cessation and legacy globals: PASS'
+Write-Output 'Export startup order, Summoner defences and Diabolist archive: PASS'

@@ -1,14 +1,11 @@
 mpackage = [[Demonic]]
-description = [[Shared targeting and area-specific Diabolist hunting for Imperian.
+description = [[Shared targeting and area-specific Summoner hunting for Imperian.
 
-Hunt uses trace fire ice against pinned denizen IDs and inverted Hammer on yourself at <=40% health.
-The ddef alias runs each Diabolist defence once outside Hunt, summoning Ouroboros first.
-Defences and attacks share confirmed balance/equilibrium gates; healing remains with autocuring.
-Tracks all eight Nightfall wraith types and Vitality consumption/cooldown from server messages.
-Resizable Denizens, Items and Players panels use the shared GMCP room roster.
-Use hunt status, hunt status debug, demui show/hide/reset, and README.md for details.
-Keep one installed Demonic package when upgrading.
+Hunt uses Combustion against pinned denizen IDs and shields at 40% health or below with Arctar or the shield tattoo.
+Use ddef to summon Arctar and set up Warmth, Astralvision, Distortion, and Mindseye.
+Includes mapped exploration, denizen health, and resizable room panels.
+Remove the previous Demonic package before importing the rebuilt XML.
 
 Source and usage: https://github.com/Aeden15/Imperian]]
-version = [[0.1.12]]
-created = "2026-11-07T16:29:35-06:00"
+version = [[0.1.13]]
+created = "2026-11-10T21:24:53-06:00"

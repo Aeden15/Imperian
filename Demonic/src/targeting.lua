@@ -27,6 +27,14 @@ function targeting.setDenizen(ref, source) return select(ref, 'denizen', source)
 function targeting.clear(source) return change(nil, nil, source) end
 function targeting.get() return dem.target end
 
+function targeting.denizenId()
+  if targeting.kind ~= 'denizen' or not dem.target then return nil end
+  local preferred = dem.hunt and dem.hunt.selectedId()
+  if preferred then return preferred end
+  local item, key = dem.room.identify(dem.target)
+  if item then return key end
+end
+
 function targeting.set(ref, source)
   local valid, err = dem.validReference(ref)
   if not valid then dem.message(err); return false, err end
